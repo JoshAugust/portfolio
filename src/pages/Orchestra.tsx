@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Component, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useGateway } from '../gateway';
@@ -9,10 +9,41 @@ import { ChatPanel } from '../components/orchestra/ChatPanel';
 import { RightPanel } from '../components/orchestra/RightPanel';
 import { ExecApprovalOverlay } from '../components/orchestra/ExecApprovalOverlay';
 
-export default function OrchestraPage() {
+// ─── Error Boundary ─────────────────────────────────────────────────────────
+
+interface EBProps { children: ReactNode }
+interface EBState { error: Error | null }
+
+class ErrorBoundary extends Component<EBProps, EBState> {
+  state: EBState = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: '100vh', background: '#0a0a0f', color: '#ef4444',
+          fontFamily: 'monospace', padding: '2rem', textAlign: 'center',
+        }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Orchestra Error</h2>
+          <pre style={{ fontSize: '0.8rem', color: '#9898b0', maxWidth: '600px', whiteSpace: 'pre-wrap' }}>
+            {this.state.error.message}
+          </pre>
+          <Link to="/" style={{ marginTop: '1.5rem', color: '#FF5C00', textDecoration: 'underline' }}>
+            ← Back to Portfolio
+          </Link>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─── Orchestra Page ─────────────────────────────────────────────────────────
+
+function OrchestraInner() {
   const { isConnected, connect } = useGateway();
 
-  // Auto-connect from localStorage on mount
   useEffect(() => {
     const url = localStorage.getItem('orchestra:wsUrl');
     const token = localStorage.getItem('orchestra:token');
@@ -47,5 +78,13 @@ export default function OrchestraPage() {
       </div>
       <ExecApprovalOverlay />
     </div>
+  );
+}
+
+export default function OrchestraPage() {
+  return (
+    <ErrorBoundary>
+      <OrchestraInner />
+    </ErrorBoundary>
   );
 }
