@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { Palette } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Palette, Radio } from "lucide-react";
 
 const PALETTES = [
   { // Default Dark
@@ -113,9 +114,13 @@ const NavBar = () => (
       <a href="#" className="hover:text-foreground transition-colors">Projects</a>
       <a href="#" className="hover:text-foreground transition-colors">Speaking</a>
     </div>
-    <div className="text-[11px] text-muted-foreground tracking-[0.2em] uppercase font-mono">
-      MBA
-    </div>
+    <Link
+      to="/orchestra"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
+    >
+      <Radio className="w-3.5 h-3.5" style={{ color: '#FF5C00' }} />
+      Orchestra
+    </Link>
   </nav>
 );
 
