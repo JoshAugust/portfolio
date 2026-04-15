@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Activity, Cpu, Users, Settings } from 'lucide-react';
+import { Activity, Cpu, Users, Settings, Monitor } from 'lucide-react';
 import { useCapacity } from '../../gateway';
 import { RunsTab } from './tabs/RunsTab';
 import { AgentsTab } from './tabs/AgentsTab';
 import { FleetTab } from './tabs/FleetTab';
 import { ControlTab } from './tabs/ControlTab';
+import { SystemTab } from './tabs/SystemTab';
 
 // ─── Glow helper ─────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'agents', label: 'Agents', icon: Cpu },
   { id: 'fleet', label: 'Fleet', icon: Users },
   { id: 'control', label: 'Control', icon: Settings },
+  { id: 'system', label: 'System', icon: Monitor },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -77,6 +79,7 @@ export function RightPanel() {
         {activeTab === 'agents' && <AgentsTab />}
         {activeTab === 'fleet' && <FleetTab />}
         {activeTab === 'control' && <ControlTab />}
+        {activeTab === 'system' && <SystemTab />}
       </div>
     </div>
   );
