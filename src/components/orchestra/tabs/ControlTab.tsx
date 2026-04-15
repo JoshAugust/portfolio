@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Settings, Wifi, Users, Radio, ExternalLink, LogOut, Activity, ScrollText, RefreshCw } from 'lucide-react';
 import { useGateway, usePresence, useChannels, useOverview, useLogs } from '../../../gateway';
+import { ConfigEditor } from '../ConfigEditor';
 
 function QuickLink({ icon: Icon, label }: { icon: typeof Settings; label: string }) {
   return (
@@ -180,6 +181,9 @@ export function ControlTab() {
           )}
         </div>
       </div>
+
+      {/* Config Editor */}
+      <ConfigEditor />
 
       {/* Quick Links */}
       <div>

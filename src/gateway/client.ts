@@ -276,6 +276,38 @@ export class GatewayClient {
     return this.request('skills.status');
   }
 
+  skillsInstall(params: { name: string; version?: string }) {
+    return this.request('skills.install', params as unknown as Record<string, unknown>);
+  }
+
+  skillsUpdate(params: { name: string }) {
+    return this.request('skills.update', params as unknown as Record<string, unknown>);
+  }
+
+  configGet() {
+    return this.request('config.get');
+  }
+
+  configSet(params: { path: string; value: unknown }) {
+    return this.request('config.set', params as unknown as Record<string, unknown>);
+  }
+
+  configApply(params: { config: unknown }) {
+    return this.request('config.apply', params as unknown as Record<string, unknown>);
+  }
+
+  configSchema() {
+    return this.request('config.schema');
+  }
+
+  searchQuery(params: { query: string; limit?: number }) {
+    return this.request('search.query', params as unknown as Record<string, unknown>);
+  }
+
+  searchIntegrations() {
+    return this.request('search.integrations.list');
+  }
+
   nodeList() {
     return this.request('node.list');
   }

@@ -18,6 +18,8 @@ export {
   useExecApprovals,
   useOverview,
   useLogs,
+  useConfig,
+  useSearch,
 } from './hooks';
 export type {
   // Protocol

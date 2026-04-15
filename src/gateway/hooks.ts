@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useGatewayStore } from './store';
 import type { GatewayState } from './store';
 
@@ -229,6 +229,71 @@ export function useLogs() {
   const refresh = useGatewayStore((s) => s.refreshLogs);
 
   return { logs, refresh };
+}
+
+// ─── useConfig ──────────────────────────────────────────────────────────────
+
+export function useConfig() {
+  const client = useGatewayStore((s) => s.client);
+
+  const [config, setConfig] = useState<Record<string, unknown> | null>(null);
+  const [schema, setSchema] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!client) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [cfgResult, schemaResult] = await Promise.all([
+        client.configGet().catch(() => null),
+        client.configSchema().catch(() => null),
+      ]);
+      if (cfgResult) setConfig(cfgResult as Record<string, unknown>);
+      if (schemaResult) setSchema(schemaResult as Record<string, unknown>);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [client]);
+
+  const save = useCallback(async (newConfig: unknown) => {
+    if (!client) throw new Error('Not connected');
+    await client.configApply({ config: newConfig });
+  }, [client]);
+
+  return { config, schema, loading, error, refresh, save };
+}
+
+// ─── useSearch ──────────────────────────────────────────────────────────────
+
+export function useSearch() {
+  const client = useGatewayStore((s) => s.client);
+  const [results, setResults] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const search = useCallback(async (query: string) => {
+    if (!client || !query.trim()) {
+      setResults([]);
+      return [];
+    }
+    setLoading(true);
+    try {
+      const result = await client.searchQuery({ query, limit: 20 });
+      const items = ((result as Record<string, unknown>)?.results ?? []) as Record<string, unknown>[];
+      setResults(items);
+      return items;
+    } catch {
+      setResults([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [client]);
+
+  return { search, results, loading };
 }
 
 // ─── useCapacity ────────────────────────────────────────────────────────────

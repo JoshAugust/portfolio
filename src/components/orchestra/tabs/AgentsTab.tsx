@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { File, Wrench, Zap, Clock, ChevronRight, Play, Power, Plus, Save, X, Pencil } from 'lucide-react';
+import { File, Wrench, Zap, Clock, ChevronRight, Play, Power, Plus, Save, X, Pencil, Download, RefreshCw } from 'lucide-react';
 import { useAgentFiles, useTools, useSkills, useCron, useGatewayStore } from '../../../gateway';
 
 function CollapsibleSection({ title, icon: Icon, count, children }: {
@@ -80,6 +80,76 @@ function NewCronJobForm({ onSubmit, onCancel }: { onSubmit: (job: Record<string,
   );
 }
 
+// ─── Skills Install Panel ────────────────────────────────────────────────
+
+function SkillInstallPanel({ onInstall, onClose }: { onInstall: (name: string) => Promise<void>; onClose: () => void }) {
+  const [skillName, setSkillName] = useState('');
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleInstall = useCallback(async () => {
+    const name = skillName.trim();
+    if (!name) return;
+    setInstalling(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await onInstall(name);
+      setSuccess(true);
+      setSkillName('');
+      setTimeout(onClose, 1200);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setInstalling(false);
+    }
+  }, [skillName, onInstall, onClose]);
+
+  return (
+    <div
+      className="mt-2 p-2 rounded-md space-y-2"
+      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
+    >
+      <div className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Install from ClawHub</div>
+      <input
+        className="w-full text-xs px-2 py-1 rounded font-mono"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+        placeholder="Skill name (e.g. github)"
+        value={skillName}
+        onChange={(e) => setSkillName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleInstall(); if (e.key === 'Escape') onClose(); }}
+        autoFocus
+      />
+      {error && (
+        <div className="text-[10px] px-1" style={{ color: 'var(--danger)' }}>Error: {error}</div>
+      )}
+      {success && (
+        <div className="text-[10px] px-1" style={{ color: '#22c55e' }}>✓ Installed successfully</div>
+      )}
+      <div className="flex gap-1">
+        <button
+          onClick={handleInstall}
+          disabled={installing || !skillName.trim()}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium cursor-pointer hover:opacity-80 disabled:opacity-40"
+          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+        >
+          <Download className="w-3 h-3" /> {installing ? 'Installing…' : 'Install'}
+        </button>
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium cursor-pointer hover:opacity-80"
+          style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}
+        >
+          <X className="w-3 h-3" /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AgentsTab ───────────────────────────────────────────────────────────
+
 export function AgentsTab() {
   const { files, refreshAgentFiles, getFileContent } = useAgentFiles();
   const { tools, refreshTools } = useTools();
@@ -89,12 +159,15 @@ export function AgentsTab() {
   const runCronJobAction = useGatewayStore((s) => s.runCronJob);
   const updateCronJobAction = useGatewayStore((s) => s.updateCronJob);
   const addCronJobAction = useGatewayStore((s) => s.addCronJob);
+  const client = useGatewayStore((s) => s.client);
 
   const [viewingFile, setViewingFile] = useState<{ path: string; content: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [showNewCron, setShowNewCron] = useState(false);
+  const [showInstallSkill, setShowInstallSkill] = useState(false);
+  const [updatingSkill, setUpdatingSkill] = useState<string | null>(null);
 
   useEffect(() => {
     refreshAgentFiles();
@@ -153,6 +226,23 @@ export function AgentsTab() {
       setShowNewCron(false);
     } catch { /* graceful */ }
   }, [addCronJobAction]);
+
+  const handleInstallSkill = useCallback(async (name: string) => {
+    if (!client) throw new Error('Not connected');
+    await client.skillsInstall({ name });
+    await refreshSkills();
+  }, [client, refreshSkills]);
+
+  const handleUpdateSkill = useCallback(async (name: string) => {
+    if (!client) return;
+    setUpdatingSkill(name);
+    try {
+      await client.skillsUpdate({ name });
+      await refreshSkills();
+    } catch { /* graceful */ } finally {
+      setUpdatingSkill(null);
+    }
+  }, [client, refreshSkills]);
 
   return (
     <div className="p-3 space-y-2">
@@ -247,11 +337,40 @@ export function AgentsTab() {
       {/* Skills */}
       <CollapsibleSection title="Skills" icon={Zap} count={skills.length}>
         {skills.map((s) => (
-          <div key={s.name} className="text-xs py-1 px-2" style={{ color: 'var(--text-secondary)' }}>
-            {s.name}
+          <div key={s.name} className="flex items-center gap-1.5 text-xs py-1 px-2">
+            <span className="truncate flex-1" style={{ color: 'var(--text-secondary)' }}>{s.name}</span>
+            {s.description && (
+              <span className="text-[9px] truncate max-w-[80px] hidden" style={{ color: 'var(--text-muted)' }}>{s.description}</span>
+            )}
+            <button
+              onClick={() => handleUpdateSkill(s.name)}
+              disabled={updatingSkill === s.name}
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] cursor-pointer hover:opacity-80 disabled:opacity-40 shrink-0"
+              style={{ background: 'var(--bg-primary)', color: 'var(--corgi-orange)', border: '1px solid var(--border-subtle)' }}
+              title="Update skill"
+            >
+              <RefreshCw className={`w-2.5 h-2.5 ${updatingSkill === s.name ? 'animate-spin' : ''}`} />
+              {updatingSkill === s.name ? '…' : 'Update'}
+            </button>
           </div>
         ))}
-        {skills.length === 0 && <div className="text-xs py-2 px-2" style={{ color: 'var(--text-muted)' }}>No skills</div>}
+        {skills.length === 0 && <div className="text-xs py-2 px-2" style={{ color: 'var(--text-muted)' }}>No skills installed</div>}
+
+        {/* Install skill */}
+        {showInstallSkill ? (
+          <SkillInstallPanel
+            onInstall={handleInstallSkill}
+            onClose={() => setShowInstallSkill(false)}
+          />
+        ) : (
+          <button
+            onClick={() => setShowInstallSkill(true)}
+            className="flex items-center gap-1 w-full mt-1 px-2 py-1.5 rounded-md text-[10px] cursor-pointer hover:opacity-80"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--corgi-orange)' }}
+          >
+            <Download className="w-3 h-3" /> Install Skill
+          </button>
+        )}
       </CollapsibleSection>
 
       {/* Cron Jobs */}

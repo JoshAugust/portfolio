@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { MessageSquare, Plus, MoreVertical } from 'lucide-react';
 import { useSessions, useCapacity } from '../../gateway';
 import type { Session } from '../../gateway';
+import { SearchBar } from './SearchBar';
 
 // ─── Glow helper ─────────────────────────────────────────────────────────────
 
@@ -108,6 +109,9 @@ export function SessionSidebar() {
           <Plus className="w-3.5 h-3.5 text-white" />
         </button>
       </div>
+
+      {/* Search */}
+      <SearchBar />
 
       {/* Session list */}
       <div className="flex-1 overflow-y-auto py-1">
