@@ -117,6 +117,8 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         set({ connectionStatus: 'connected', error: null });
         // Auto-load sessions on connect
         get().refreshSessions();
+        // Refresh overview for accurate capacity counts
+        get().refreshOverview();
       } else if (status === 'disconnected') {
         set({ connectionStatus: 'disconnected' });
       }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { MessageSquare, Plus, MoreVertical } from 'lucide-react';
 import { useSessions, useCapacity } from '../../gateway';
 import type { Session } from '../../gateway';
+import { useGatewayStore } from '../../gateway';
 import { SearchBar } from './SearchBar';
 
 // ─── Glow helper ─────────────────────────────────────────────────────────────
@@ -30,12 +31,85 @@ function timeAgo(dateStr?: string | number): string {
   return `${days}d`;
 }
 
+// ─── Channel icon ────────────────────────────────────────────────────────────
+
+function channelIcon(s: Session): string {
+  const key = s.key;
+  const channel = (s as any).channel;
+  if (key.includes('subagent')) return '🤖';
+  if (key.includes('cron')) return '⏰';
+  if (channel === 'telegram') return '📱';
+  if (channel === 'webchat') return '💬';
+  if (channel === 'discord') return '🎮';
+  return '💬';
+}
+
+// ─── Smart session name ──────────────────────────────────────────────────────
+
 function sessionName(s: Session): string {
+  // 1. User-set label takes priority
   if (s.label) return s.label;
-  if (s.lastMessage) return s.lastMessage.slice(0, 50);
-  // Derive from key
-  const parts = s.key.split(':');
-  return parts[parts.length - 1]?.slice(0, 30) ?? s.key.slice(0, 30);
+
+  // 2. Group subject (e.g., "To Do", "GOLD", "Case Prep")
+  if ((s as any).subject) return (s as any).subject;
+
+  // 3. Parse origin.label for human names
+  const originLabel = (s as any).origin?.label;
+  if (originLabel) {
+    // "Josh A (@lowcostjosh) id:1443217514" → "Josh A"
+    const nameMatch = originLabel.match(/^([^(]+)/);
+    if (nameMatch) {
+      const name = nameMatch[1].trim();
+      if (name && name !== s.key && !/^\d+$/.test(name)) {
+        const channel = (s as any).channel;
+        const kind = (s as any).kind;
+        if (kind === 'direct' && channel) return `${name} (${channel})`;
+        if (kind === 'group' && channel) return `${name} (${channel} group)`;
+        return name;
+      }
+    }
+  }
+
+  // 4. Parse key for context
+  const key = s.key;
+  if (key.includes('subagent')) {
+    const uuid = key.split(':').pop()?.slice(0, 8);
+    return `Sub-agent ${uuid}`;
+  }
+  if (key.includes('cron')) return 'Cron Job';
+  if (key.includes('group')) {
+    const subject = (s as any).subject;
+    return subject || 'Group Chat';
+  }
+  if (key.includes('direct')) {
+    const channel = (s as any).channel ?? 'DM';
+    return `Direct (${channel})`;
+  }
+
+  // 5. Fallback: clean up the key
+  const parts = key.split(':');
+  return parts[parts.length - 1]?.slice(0, 20) ?? key.slice(0, 20);
+}
+
+// ─── Status dot ──────────────────────────────────────────────────────────────
+
+function SessionStatusDot({ sessionKey }: { sessionKey: string }) {
+  const activeKey = useGatewayStore((s) => s.activeSessionKey);
+  const streaming = useGatewayStore((s) => s.chatStreaming);
+
+  let color = 'var(--text-muted)'; // gray — idle
+  if (sessionKey === activeKey && streaming) {
+    color = '#eab308'; // orange/yellow — streaming
+  }
+  // Could track active runs per session with agent events in the future.
+  // For now: gray idle, yellow streaming on active session.
+
+  return (
+    <span
+      className="w-2 h-2 rounded-full inline-block shrink-0"
+      style={{ background: color }}
+    />
+  );
 }
 
 export function SessionSidebar() {
@@ -129,7 +203,10 @@ export function SessionSidebar() {
                 borderLeft: isActive ? '2px solid var(--corgi-orange)' : '2px solid transparent',
               }}
             >
-              <MessageSquare className="w-4 h-4 shrink-0" style={{ color: isActive ? 'var(--corgi-orange)' : 'var(--text-muted)' }} />
+              <SessionStatusDot sessionKey={s.key} />
+              <span className="text-sm shrink-0" title={(s as any).channel ?? ''}>
+                {channelIcon(s)}
+              </span>
               <div className="flex-1 min-w-0">
                 {editingKey === s.key ? (
                   <input

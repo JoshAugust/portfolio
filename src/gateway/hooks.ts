@@ -299,19 +299,23 @@ export function useSearch() {
 // ─── useCapacity ────────────────────────────────────────────────────────────
 
 export function useCapacity() {
-  const presence = useGatewayStore(selectPresence);
   const sessions = useGatewayStore(selectSessionsList);
+  const overview = useGatewayStore((s) => s.overview);
 
   return useMemo(() => {
-    // Estimate capacity from presence / session data
-    const mainRuns = sessions.filter((s) => !s.key.includes('subagent')).length;
-    const subAgents = sessions.filter((s) => s.key.includes('subagent')).length;
-    const connectedClients = presence.length;
+    // Use overview data if available (has real run counts)
+    // Otherwise estimate conservatively
+    const subAgentSessions = sessions.filter((s) => s.key.includes('subagent'));
+    const mainSessions = sessions.filter((s) => !s.key.includes('subagent'));
 
     return {
-      mainRuns: { current: mainRuns, max: 4 },
-      subAgents: { current: subAgents, max: 50 },
-      connectedClients,
+      mainRuns: { current: (overview as any)?.activeRuns ?? 0, max: 4 },
+      subAgents: {
+        current: (overview as any)?.activeSubAgents ?? subAgentSessions.filter(s => (s as any).running).length,
+        max: 50,
+      },
+      sessions: { total: sessions.length, main: mainSessions.length, subAgents: subAgentSessions.length },
+      connectedClients: 0,
     };
-  }, [presence, sessions]);
+  }, [sessions, overview]);
 }

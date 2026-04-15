@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { User, Bot } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { User, Bot, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import type { ChatMessage as ChatMessageType } from '../../gateway';
 
 function renderMarkdown(text: string): ReactNode[] {
@@ -109,6 +109,141 @@ function formatInline(text: string): (string | ReactNode)[] {
   return parts.length > 0 ? parts : [text];
 }
 
+// ─── Tool Call Card ─────────────────────────────────────────────────────────
+
+function ToolCallCard({ name }: { name: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono"
+      style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+    >
+      <Wrench className="w-3 h-3" style={{ color: 'var(--corgi-orange)' }} />
+      {name}
+    </span>
+  );
+}
+
+// ─── Collapsible Tool Result ────────────────────────────────────────────────
+
+function ToolResultBlock({ content, toolCallId }: { content: string; toolCallId?: string }) {
+  const [open, setOpen] = useState(false);
+  const preview = typeof content === 'string' ? content.slice(0, 120) : String(content ?? '').slice(0, 120);
+  const fullContent = typeof content === 'string' ? content : String(content ?? '');
+
+  return (
+    <div
+      className="my-1 rounded-md overflow-hidden text-xs"
+      style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-primary)' }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 w-full px-2 py-1 cursor-pointer"
+        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}
+      >
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        <span className="font-mono text-[10px]">
+          {toolCallId ? `result (${toolCallId.slice(0, 10)}…)` : 'tool result'}
+        </span>
+        {!open && (
+          <span className="truncate ml-2 opacity-50">{preview}{fullContent.length > 120 ? '…' : ''}</span>
+        )}
+      </button>
+      {open && (
+        <pre className="p-2 text-[11px] overflow-x-auto whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+          {fullContent}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+// ─── Extract display content from message ───────────────────────────────────
+
+function extractMessageContent(message: ChatMessageType): ReactNode[] {
+  const elements: ReactNode[] = [];
+  const msg = message as any;
+
+  // 1. Extract text: flat field first, then content array
+  const text = message.text ?? (
+    Array.isArray(msg.content)
+      ? msg.content
+          .filter((s: any) => s.type === 'text')
+          .map((s: any) => s.text ?? '')
+          .join('\n')
+      : ''
+  );
+
+  if (text) {
+    elements.push(...renderMarkdown(text));
+  }
+
+  // 2. Render tool calls and results from content array
+  if (Array.isArray(msg.content)) {
+    for (let i = 0; i < msg.content.length; i++) {
+      const seg = msg.content[i];
+      if (seg.type === 'toolCall' || seg.type === 'tool_use') {
+        elements.push(
+          <div key={`tc-${i}`} className="my-1">
+            <ToolCallCard name={seg.name ?? seg.toolName ?? 'tool'} />
+          </div>
+        );
+      }
+      if (seg.type === 'toolResult' || seg.type === 'tool_result') {
+        const resultContent = typeof seg.content === 'string'
+          ? seg.content
+          : typeof seg.result === 'string'
+            ? seg.result
+            : JSON.stringify(seg.content ?? seg.result ?? '', null, 2);
+        elements.push(
+          <ToolResultBlock
+            key={`tr-${i}`}
+            content={resultContent}
+            toolCallId={seg.toolCallId ?? seg.tool_use_id}
+          />
+        );
+      }
+    }
+  }
+
+  // 3. Also render segments if present (our own typed segments)
+  if (Array.isArray(message.segments) && elements.length === 0) {
+    for (let i = 0; i < message.segments.length; i++) {
+      const seg = message.segments[i];
+      if (seg.type === 'text' && seg.text) {
+        elements.push(...renderMarkdown(seg.text));
+      }
+      if (seg.type === 'tool_use' && seg.toolName) {
+        elements.push(
+          <div key={`seg-tc-${i}`} className="my-1">
+            <ToolCallCard name={seg.toolName} />
+          </div>
+        );
+      }
+      if (seg.type === 'tool_result') {
+        elements.push(
+          <ToolResultBlock
+            key={`seg-tr-${i}`}
+            content={typeof seg.toolResult === 'string' ? seg.toolResult : JSON.stringify(seg.toolResult ?? '', null, 2)}
+          />
+        );
+      }
+    }
+  }
+
+  // 4. If still nothing, show muted placeholder
+  if (elements.length === 0) {
+    elements.push(
+      <span key="empty" className="text-xs italic" style={{ color: 'var(--text-muted)' }}>
+        (no text content)
+      </span>
+    );
+  }
+
+  return elements;
+}
+
+// ─── ChatMessage Component ──────────────────────────────────────────────────
+
 interface ChatMessageProps {
   message: ChatMessageType;
 }
@@ -153,7 +288,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             </span>
           )}
         </div>
-        <div className="space-y-1">{renderMarkdown(message.text)}</div>
+        <div className="space-y-1">{extractMessageContent(message)}</div>
       </div>
     </div>
   );

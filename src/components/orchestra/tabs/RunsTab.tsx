@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Activity, Clock, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Activity, Clock, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSessions, useCron } from '../../../gateway';
 
 function statusDot(status?: string) {
@@ -33,9 +33,17 @@ function statusBadge(status?: string) {
   );
 }
 
+function isRecentlyCreated(s: { createdAt?: string; updatedAt?: string }): boolean {
+  const ts = s.updatedAt ?? s.createdAt;
+  if (!ts) return false;
+  const diff = Date.now() - new Date(ts).getTime();
+  return diff < 5 * 60 * 1000; // 5 minutes
+}
+
 export function RunsTab() {
   const { sessions } = useSessions();
   const { runs, refreshCronRuns } = useCron();
+  const [recentOpen, setRecentOpen] = useState(false);
 
   useEffect(() => {
     refreshCronRuns({ limit: 10 });
@@ -43,6 +51,30 @@ export function RunsTab() {
 
   const mainRuns = sessions.filter((s) => !s.key.includes('subagent'));
   const subAgents = sessions.filter((s) => s.key.includes('subagent'));
+
+  // Split sub-agents into Active and Recent
+  const { activeSubAgents, recentSubAgents } = useMemo(() => {
+    const active: typeof subAgents = [];
+    const recent: typeof subAgents = [];
+
+    for (const s of subAgents) {
+      const isRunning = (s as any).running || (s as any).status === 'running';
+      if (isRunning || isRecentlyCreated(s)) {
+        active.push(s);
+      } else {
+        recent.push(s);
+      }
+    }
+
+    // Sort recent by updatedAt descending, cap at 20
+    recent.sort((a, b) => {
+      const ta = String(a.updatedAt ?? a.createdAt ?? '');
+      const tb = String(b.updatedAt ?? b.createdAt ?? '');
+      return tb.localeCompare(ta);
+    });
+
+    return { activeSubAgents: active, recentSubAgents: recent.slice(0, 20) };
+  }, [subAgents]);
 
   return (
     <div className="p-3 space-y-4">
@@ -70,19 +102,19 @@ export function RunsTab() {
         )}
       </div>
 
-      {/* Sub-agents */}
+      {/* Active Sub-agents */}
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <Activity className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+          <Activity className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
           <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            Sub-agents ({subAgents.length})
+            Active Sub-agents ({activeSubAgents.length})
           </span>
         </div>
-        {subAgents.length === 0 ? (
-          <div className="text-xs px-2 py-3 text-center" style={{ color: 'var(--text-muted)' }}>No sub-agents</div>
+        {activeSubAgents.length === 0 ? (
+          <div className="text-xs px-2 py-3 text-center" style={{ color: 'var(--text-muted)' }}>No active sub-agents</div>
         ) : (
           <div className="space-y-1">
-            {subAgents.slice(0, 10).map((s) => (
+            {activeSubAgents.map((s) => (
               <div key={s.key} className="flex items-center gap-2 px-2 py-1.5 rounded-md" style={{ background: 'var(--bg-tertiary)' }}>
                 {statusDot('running')}
                 <span className="text-xs truncate flex-1" style={{ color: 'var(--text-secondary)' }}>
@@ -93,6 +125,37 @@ export function RunsTab() {
           </div>
         )}
       </div>
+
+      {/* Recent Sub-agents (collapsed) */}
+      {recentSubAgents.length > 0 && (
+        <div>
+          <button
+            onClick={() => setRecentOpen(!recentOpen)}
+            className="flex items-center gap-2 mb-2 cursor-pointer w-full"
+          >
+            {recentOpen ? (
+              <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+            )}
+            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              Recent Sub-agents ({recentSubAgents.length})
+            </span>
+          </button>
+          {recentOpen && (
+            <div className="space-y-1">
+              {recentSubAgents.map((s) => (
+                <div key={s.key} className="flex items-center gap-2 px-2 py-1.5 rounded-md" style={{ background: 'var(--bg-tertiary)' }}>
+                  {statusDot((s as any).status)}
+                  <span className="text-xs truncate flex-1" style={{ color: 'var(--text-secondary)' }}>
+                    {s.label ?? s.key.split(':').pop()?.slice(0, 8)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent Cron Runs */}
       <div>

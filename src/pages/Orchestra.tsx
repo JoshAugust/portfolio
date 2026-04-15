@@ -57,7 +57,7 @@ function InlineConnectScreen({ onConnect, error: connectError, isConnecting }: {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen" style={{ background: '#0a0a0f' }}>
+    <div className="orchestra-ui flex items-center justify-center h-screen" style={{ background: '#0a0a0f' }}>
       <Link
         to="/"
         className="fixed top-6 left-6 z-50 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors"
@@ -174,7 +174,7 @@ function OrchestraInner() {
 
       // Create the connected UI component
       const ConnectedUI = () => (
-        <div className="flex flex-col h-screen" style={{ background: '#0a0a0f' }}>
+        <div className="orchestra-ui flex flex-col h-screen" style={{ background: '#0a0a0f' }}>
           <CapacityBar />
           <div className="flex flex-1 min-h-0">
             <SessionSidebar />

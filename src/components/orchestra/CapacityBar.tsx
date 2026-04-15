@@ -57,9 +57,8 @@ function Divider() {
 // ─── CapacityBar ─────────────────────────────────────────────────────────────
 
 export function CapacityBar() {
-  const { mainRuns, subAgents } = useCapacity();
+  const { mainRuns, subAgents, sessions } = useCapacity();
   const { status: cronStatus } = useCron();
-  const { sessions } = useSessions();
 
   const isCronActive = cronStatus?.enabled === true;
 
@@ -72,8 +71,8 @@ export function CapacityBar() {
         borderBottom: '1px solid var(--border-subtle)',
       }}
     >
-      {/* Main runs gauge */}
-      <Gauge label="Main" current={mainRuns.current} max={mainRuns.max} />
+      {/* Active runs gauge */}
+      <Gauge label="Active Runs" current={mainRuns.current} max={mainRuns.max} />
 
       <Divider />
 
@@ -91,7 +90,7 @@ export function CapacityBar() {
           className="text-[10px] font-mono tabular-nums font-medium"
           style={{ color: 'var(--text-secondary)' }}
         >
-          {sessions.length}
+          {sessions?.total ?? 0}
         </span>
       </div>
 
