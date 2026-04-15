@@ -177,31 +177,34 @@ export class GatewayClient {
     }
   }
 
-  private _sendHandshake(nonce?: string): void {
-    const req: RequestFrame = {
-      type: 'req',
-      id: this._nextId(),
-      method: 'connect',
-      params: {
-        minProtocol: 3,
-        maxProtocol: 3,
-        client: {
-          id: 'eragon-control-ui',
-          version: '1.0.0',
-          platform: navigator?.platform ?? 'web',
-          mode: 'webchat',
-        },
-        role: this.config.role ?? 'operator',
-        scopes: this.config.scopes ?? ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
-        caps: [],
-        commands: [],
-        permissions: {},
-        auth: { token: this.config.token },
-        locale: navigator?.language ?? 'en-US',
-        userAgent: 'orchestra/1.0.0',
+  private _sendHandshake(_nonce?: string): void {
+    // Use request() so the response is tracked in the pending map
+    this.request('connect', {
+      minProtocol: 3,
+      maxProtocol: 3,
+      client: {
+        id: 'eragon-control-ui',
+        version: '1.0.0',
+        platform: navigator?.platform ?? 'web',
+        mode: 'webchat',
       },
-    };
-    this._send(req);
+      role: this.config.role ?? 'operator',
+      scopes: this.config.scopes ?? ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
+      caps: ['tool-events'],
+      auth: { token: this.config.token },
+      locale: navigator?.language ?? 'en-US',
+      userAgent: 'orchestra/1.0.0',
+    }, 15000).then(() => {
+      // hello-ok received as response payload
+      this.emit('_status', { status: 'connected' } as unknown as EventFrame);
+      this._connectionResolve?.();
+      this._connectionResolve = null;
+      this._connectionReject = null;
+    }).catch((err) => {
+      this._connectionReject?.(err);
+      this._connectionReject = null;
+      this._connectionResolve = null;
+    });
   }
 
   // ── RPC ─────────────────────────────────────────────────────────────────
