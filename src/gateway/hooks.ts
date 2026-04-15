@@ -184,6 +184,53 @@ export function useModels() {
   return { models, refreshModels };
 }
 
+// ─── useUsage ───────────────────────────────────────────────────────────────
+
+const selectSessionUsage = (s: GatewayState) => s.sessionUsage;
+const selectCostBreakdown = (s: GatewayState) => s.costBreakdown;
+
+export function useUsage() {
+  const usage = useGatewayStore(selectSessionUsage);
+  const cost = useGatewayStore(selectCostBreakdown);
+  const refresh = useGatewayStore((s) => s.refreshUsage);
+
+  return { usage, cost, refresh };
+}
+
+// ─── useExecApprovals ───────────────────────────────────────────────────────
+
+const selectExecApprovals = (s: GatewayState) => s.execApprovals;
+
+export function useExecApprovals() {
+  const approvals = useGatewayStore(selectExecApprovals);
+  const resolve = useGatewayStore((s) => s.resolveApproval);
+  const refresh = useGatewayStore((s) => s.refreshExecApprovals);
+
+  return { approvals, resolve, refresh };
+}
+
+// ─── useOverview ────────────────────────────────────────────────────────────
+
+const selectOverview = (s: GatewayState) => s.overview;
+
+export function useOverview() {
+  const overview = useGatewayStore(selectOverview);
+  const refresh = useGatewayStore((s) => s.refreshOverview);
+
+  return { overview, refresh };
+}
+
+// ─── useLogs ────────────────────────────────────────────────────────────────
+
+const selectLogs = (s: GatewayState) => s.logs;
+
+export function useLogs() {
+  const logs = useGatewayStore(selectLogs);
+  const refresh = useGatewayStore((s) => s.refreshLogs);
+
+  return { logs, refresh };
+}
+
 // ─── useCapacity ────────────────────────────────────────────────────────────
 
 export function useCapacity() {

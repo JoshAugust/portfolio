@@ -5,6 +5,7 @@ import { CapacityBar } from './components/orchestra/CapacityBar';
 import { SessionSidebar } from './components/orchestra/SessionSidebar';
 import { ChatPanel } from './components/orchestra/ChatPanel';
 import { RightPanel } from './components/orchestra/RightPanel';
+import { ExecApprovalOverlay } from './components/orchestra/ExecApprovalOverlay';
 
 function App() {
   const { isConnected, connect } = useGateway();
@@ -30,6 +31,7 @@ function App() {
         <ChatPanel />
         <RightPanel />
       </div>
+      <ExecApprovalOverlay />
     </div>
   );
 }

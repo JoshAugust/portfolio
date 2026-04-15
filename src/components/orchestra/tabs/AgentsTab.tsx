@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { File, Wrench, Zap, Clock, ChevronRight } from 'lucide-react';
-import { useAgentFiles, useTools, useSkills, useCron } from '../../../gateway';
+import { useEffect, useState, useCallback } from 'react';
+import { File, Wrench, Zap, Clock, ChevronRight, Play, Power, Plus, Save, X, Pencil } from 'lucide-react';
+import { useAgentFiles, useTools, useSkills, useCron, useGatewayStore } from '../../../gateway';
 
 function CollapsibleSection({ title, icon: Icon, count, children }: {
   title: string;
@@ -31,12 +31,70 @@ function CollapsibleSection({ title, icon: Icon, count, children }: {
   );
 }
 
+function NewCronJobForm({ onSubmit, onCancel }: { onSubmit: (job: Record<string, unknown>) => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [schedule, setSchedule] = useState('');
+  const [payload, setPayload] = useState('');
+
+  return (
+    <div className="p-2 rounded-md space-y-2 mt-1" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}>
+      <input
+        className="w-full text-xs px-2 py-1 rounded"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+        placeholder="Job name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <input
+        className="w-full text-xs px-2 py-1 rounded font-mono"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+        placeholder="Schedule (e.g. */5 * * * *)"
+        value={schedule}
+        onChange={(e) => setSchedule(e.target.value)}
+      />
+      <textarea
+        className="w-full text-xs px-2 py-1 rounded font-mono resize-none"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+        placeholder="Payload (text)"
+        rows={2}
+        value={payload}
+        onChange={(e) => setPayload(e.target.value)}
+      />
+      <div className="flex gap-1">
+        <button
+          onClick={() => { if (name && schedule) onSubmit({ label: name, schedule, task: payload }); }}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium cursor-pointer hover:opacity-80"
+          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+        >
+          <Save className="w-3 h-3" /> Create
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium cursor-pointer hover:opacity-80"
+          style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}
+        >
+          <X className="w-3 h-3" /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AgentsTab() {
   const { files, refreshAgentFiles, getFileContent } = useAgentFiles();
   const { tools, refreshTools } = useTools();
   const { skills, refreshSkills } = useSkills();
   const { jobs, refreshCron } = useCron();
+  const saveAgentFile = useGatewayStore((s) => s.saveAgentFile);
+  const runCronJobAction = useGatewayStore((s) => s.runCronJob);
+  const updateCronJobAction = useGatewayStore((s) => s.updateCronJob);
+  const addCronJobAction = useGatewayStore((s) => s.addCronJob);
+
   const [viewingFile, setViewingFile] = useState<{ path: string; content: string } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showNewCron, setShowNewCron] = useState(false);
 
   useEffect(() => {
     refreshAgentFiles();
@@ -45,14 +103,56 @@ export function AgentsTab() {
     refreshCron();
   }, [refreshAgentFiles, refreshTools, refreshSkills, refreshCron]);
 
-  const handleFileClick = async (path: string) => {
+  const handleFileClick = useCallback(async (path: string) => {
     if (viewingFile?.path === path) {
       setViewingFile(null);
+      setEditing(false);
       return;
     }
     const content = await getFileContent(path);
     setViewingFile({ path, content: content ?? '(empty)' });
-  };
+    setEditing(false);
+  }, [viewingFile, getFileContent]);
+
+  const handleEdit = useCallback(() => {
+    if (!viewingFile) return;
+    setEditContent(viewingFile.content);
+    setEditing(true);
+  }, [viewingFile]);
+
+  const handleSave = useCallback(async () => {
+    if (!viewingFile) return;
+    setSaving(true);
+    try {
+      await saveAgentFile(viewingFile.path, editContent);
+      setViewingFile({ path: viewingFile.path, content: editContent });
+      setEditing(false);
+    } catch {
+      // Graceful
+    } finally {
+      setSaving(false);
+    }
+  }, [viewingFile, editContent, saveAgentFile]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    setEditContent('');
+  }, []);
+
+  const handleRunCron = useCallback(async (jobId: string) => {
+    try { await runCronJobAction(jobId); } catch { /* graceful */ }
+  }, [runCronJobAction]);
+
+  const handleToggleCron = useCallback(async (jobId: string, currentEnabled: boolean) => {
+    try { await updateCronJobAction(jobId, { enabled: !currentEnabled }); } catch { /* graceful */ }
+  }, [updateCronJobAction]);
+
+  const handleAddCron = useCallback(async (job: Record<string, unknown>) => {
+    try {
+      await addCronJobAction(job);
+      setShowNewCron(false);
+    } catch { /* graceful */ }
+  }, [addCronJobAction]);
 
   return (
     <div className="p-3 space-y-2">
@@ -71,12 +171,60 @@ export function AgentsTab() {
               {f.name}
             </button>
             {viewingFile?.path === f.path && (
-              <pre
-                className="text-[10px] p-2 mt-1 rounded-md overflow-x-auto max-h-48 overflow-y-auto"
-                style={{ background: 'var(--bg-primary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
-              >
-                {viewingFile.content}
-              </pre>
+              <div className="mt-1">
+                {/* Action bar */}
+                <div className="flex gap-1 mb-1">
+                  {!editing ? (
+                    <button
+                      onClick={handleEdit}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] cursor-pointer hover:opacity-80"
+                      style={{ background: 'var(--bg-tertiary)', color: 'var(--corgi-orange)' }}
+                    >
+                      <Pencil className="w-2.5 h-2.5" /> Edit
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] cursor-pointer hover:opacity-80"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+                      >
+                        <Save className="w-2.5 h-2.5" /> {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] cursor-pointer hover:opacity-80"
+                        style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}
+                      >
+                        <X className="w-2.5 h-2.5" /> Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+                {editing ? (
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full text-[10px] p-2 rounded-md font-mono resize-none"
+                    style={{
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--corgi-orange)',
+                      minHeight: 120,
+                      maxHeight: 300,
+                    }}
+                    rows={10}
+                  />
+                ) : (
+                  <pre
+                    className="text-[10px] p-2 rounded-md overflow-x-auto max-h-48 overflow-y-auto"
+                    style={{ background: 'var(--bg-primary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    {viewingFile.content}
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         ))}
@@ -109,13 +257,44 @@ export function AgentsTab() {
       {/* Cron Jobs */}
       <CollapsibleSection title="Cron Jobs" icon={Clock} count={jobs.length}>
         {jobs.map((j) => (
-          <div key={j.id} className="flex items-center gap-2 text-xs py-1 px-2">
+          <div key={j.id} className="flex items-center gap-1.5 text-xs py-1 px-2">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: j.enabled ? 'var(--success)' : 'var(--text-muted)' }} />
-            <span style={{ color: 'var(--text-secondary)' }}>{j.label ?? j.id}</span>
-            <span className="ml-auto font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{j.schedule}</span>
+            <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{j.label ?? j.id}</span>
+            <span className="font-mono text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>{j.schedule}</span>
+            <div className="ml-auto flex gap-1 shrink-0">
+              <button
+                onClick={() => handleRunCron(j.id)}
+                className="p-0.5 rounded cursor-pointer hover:opacity-80"
+                style={{ color: 'var(--corgi-orange)' }}
+                title="Run Now"
+              >
+                <Play className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => handleToggleCron(j.id, j.enabled)}
+                className="p-0.5 rounded cursor-pointer hover:opacity-80"
+                style={{ color: j.enabled ? 'var(--success)' : 'var(--text-muted)' }}
+                title={j.enabled ? 'Disable' : 'Enable'}
+              >
+                <Power className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         ))}
         {jobs.length === 0 && <div className="text-xs py-2 px-2" style={{ color: 'var(--text-muted)' }}>No cron jobs</div>}
+
+        {/* New Job */}
+        {showNewCron ? (
+          <NewCronJobForm onSubmit={handleAddCron} onCancel={() => setShowNewCron(false)} />
+        ) : (
+          <button
+            onClick={() => setShowNewCron(true)}
+            className="flex items-center gap-1 w-full mt-1 px-2 py-1.5 rounded-md text-[10px] cursor-pointer hover:opacity-80"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--corgi-orange)' }}
+          >
+            <Plus className="w-3 h-3" /> New Job
+          </button>
+        )}
       </CollapsibleSection>
     </div>
   );

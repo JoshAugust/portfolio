@@ -292,6 +292,70 @@ export class GatewayClient {
     return this.request('system-presence');
   }
 
+  // Usage & cost
+  sessionsUsage(params: { sessionKey?: string } = {}) {
+    return this.request('sessions.usage', params as Record<string, unknown>);
+  }
+
+  usageCost() {
+    return this.request('usage.cost', {});
+  }
+
+  sessionsUsageTimeseries(params: { sessionKey?: string } = {}) {
+    return this.request('sessions.usage.timeseries', params as Record<string, unknown>);
+  }
+
+  // Exec approvals
+  getExecApprovals() {
+    return this.request('exec.approvals.get', {});
+  }
+
+  resolveExecApproval(id: string, decision: 'allow-once' | 'allow-always' | 'deny') {
+    return this.request('exec.approval.resolve', { id, decision });
+  }
+
+  // File editing
+  setAgentFile(params: { path: string; content: string }) {
+    return this.request('agents.files.set', params as unknown as Record<string, unknown>);
+  }
+
+  // Log tailing
+  tailLogs(params: { limit?: number } = {}) {
+    return this.request('logs.tail', params as Record<string, unknown>);
+  }
+
+  // Cron CRUD
+  addCronJob(params: { job: Record<string, unknown> }) {
+    return this.request('cron.add', params as unknown as Record<string, unknown>);
+  }
+
+  updateCronJob(params: { jobId: string; patch: Record<string, unknown> }) {
+    return this.request('cron.update', params as unknown as Record<string, unknown>);
+  }
+
+  removeCronJob(params: { jobId: string }) {
+    return this.request('cron.remove', params as unknown as Record<string, unknown>);
+  }
+
+  runCronJob(params: { jobId: string }) {
+    return this.request('cron.run', params as unknown as Record<string, unknown>);
+  }
+
+  // Overview
+  overviewSnapshot() {
+    return this.request('overview.snapshot.status', {});
+  }
+
+  // Models providers
+  modelsProviders() {
+    return this.request('models.providers', {});
+  }
+
+  // Agent identity
+  agentIdentity() {
+    return this.request('agent.identity.get', {});
+  }
+
   // ── Event Emitter ───────────────────────────────────────────────────────
 
   on(event: string, handler: EventHandler): () => void {

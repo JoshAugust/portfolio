@@ -56,6 +56,19 @@ export interface GatewayState {
   presence: PresenceEntry[];
   channels: ChannelStatus[];
 
+  // Usage
+  sessionUsage: Record<string, unknown> | null;
+  costBreakdown: Record<string, unknown> | null;
+
+  // Exec approvals
+  execApprovals: Record<string, unknown>[];
+
+  // Overview
+  overview: Record<string, unknown> | null;
+
+  // Logs
+  logs: string[];
+
   // Actions
   connect: (url: string, token: string) => Promise<void>;
   disconnect: () => void;
@@ -76,6 +89,18 @@ export interface GatewayState {
   refreshNodes: () => Promise<void>;
   refreshModels: () => Promise<void>;
   getFileContent: (path: string) => Promise<string | undefined>;
+
+  // New actions
+  refreshUsage: () => Promise<void>;
+  refreshExecApprovals: () => Promise<void>;
+  resolveApproval: (id: string, decision: string) => Promise<void>;
+  saveAgentFile: (path: string, content: string) => Promise<void>;
+  refreshOverview: () => Promise<void>;
+  refreshLogs: (limit?: number) => Promise<void>;
+  addCronJob: (job: Record<string, unknown>) => Promise<void>;
+  updateCronJob: (jobId: string, patch: Record<string, unknown>) => Promise<void>;
+  removeCronJob: (jobId: string) => Promise<void>;
+  runCronJob: (jobId: string) => Promise<void>;
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
@@ -162,6 +187,12 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     client.on('cron.run.finished', () => {
       get().refreshCron();
     });
+
+    // Exec approval events
+    client.on('exec.approval.requested', (frame: EventFrame) => {
+      const p = frame.payload as Record<string, unknown>;
+      set({ execApprovals: [...get().execApprovals, p] });
+    });
   }
 
   return {
@@ -186,6 +217,11 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     models: [],
     presence: [],
     channels: [],
+    sessionUsage: null,
+    costBreakdown: null,
+    execApprovals: [],
+    overview: null,
+    logs: [],
 
     // ── Actions ─────────────────────────────────────────────────────────
 
@@ -390,6 +426,104 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       if (!client) return undefined;
       const result = await client.agentFilesGet({ path });
       return (result as Record<string, unknown>)?.content as string | undefined;
+    },
+
+    refreshUsage: async () => {
+      const client = get().client;
+      if (!client) return;
+      try {
+        const [usageResult, costResult] = await Promise.all([
+          client.sessionsUsage(),
+          client.usageCost(),
+        ]);
+        set({
+          sessionUsage: (usageResult as Record<string, unknown>) ?? null,
+          costBreakdown: (costResult as Record<string, unknown>) ?? null,
+        });
+      } catch {
+        // Graceful — leave current state
+      }
+    },
+
+    refreshExecApprovals: async () => {
+      const client = get().client;
+      if (!client) return;
+      try {
+        const result = await client.getExecApprovals();
+        set({
+          execApprovals: ((result as Record<string, unknown>)?.approvals ?? []) as Record<string, unknown>[],
+        });
+      } catch {
+        // Graceful
+      }
+    },
+
+    resolveApproval: async (id: string, decision: string) => {
+      const client = get().client;
+      if (!client) return;
+      try {
+        await client.resolveExecApproval(id, decision as 'allow-once' | 'allow-always' | 'deny');
+        // Remove from local state
+        set({ execApprovals: get().execApprovals.filter((a) => a.id !== id) });
+      } catch {
+        // Graceful
+      }
+    },
+
+    saveAgentFile: async (path: string, content: string) => {
+      const client = get().client;
+      if (!client) return;
+      await client.setAgentFile({ path, content });
+    },
+
+    refreshOverview: async () => {
+      const client = get().client;
+      if (!client) return;
+      try {
+        const result = await client.overviewSnapshot();
+        set({ overview: (result as Record<string, unknown>) ?? null });
+      } catch {
+        // Graceful
+      }
+    },
+
+    refreshLogs: async (limit = 30) => {
+      const client = get().client;
+      if (!client) return;
+      try {
+        const result = await client.tailLogs({ limit });
+        const lines = ((result as Record<string, unknown>)?.lines ?? []) as string[];
+        set({ logs: lines });
+      } catch {
+        // Graceful
+      }
+    },
+
+    addCronJob: async (job: Record<string, unknown>) => {
+      const client = get().client;
+      if (!client) return;
+      await client.addCronJob({ job });
+      await get().refreshCron();
+    },
+
+    updateCronJob: async (jobId: string, patch: Record<string, unknown>) => {
+      const client = get().client;
+      if (!client) return;
+      await client.updateCronJob({ jobId, patch });
+      await get().refreshCron();
+    },
+
+    removeCronJob: async (jobId: string) => {
+      const client = get().client;
+      if (!client) return;
+      await client.removeCronJob({ jobId });
+      await get().refreshCron();
+    },
+
+    runCronJob: async (jobId: string) => {
+      const client = get().client;
+      if (!client) return;
+      await client.runCronJob({ jobId });
     },
   };
 });
