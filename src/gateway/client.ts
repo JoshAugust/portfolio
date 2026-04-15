@@ -183,10 +183,22 @@ export class GatewayClient {
       id: this._nextId(),
       method: 'connect',
       params: {
-        token: this.config.token,
+        minProtocol: 3,
+        maxProtocol: 3,
+        client: {
+          id: 'eragon-control-ui',
+          version: '1.0.0',
+          platform: navigator?.platform ?? 'web',
+          mode: 'webchat',
+        },
         role: this.config.role ?? 'operator',
-        scopes: this.config.scopes ?? ['operator.read', 'operator.write'],
-        ...(nonce ? { nonce } : {}),
+        scopes: this.config.scopes ?? ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
+        caps: [],
+        commands: [],
+        permissions: {},
+        auth: { token: this.config.token },
+        locale: navigator?.language ?? 'en-US',
+        userAgent: 'orchestra/1.0.0',
       },
     };
     this._send(req);
