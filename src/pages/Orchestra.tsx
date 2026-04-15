@@ -39,7 +39,7 @@ function InlineConnectScreen({ onConnect, error: connectError, isConnecting }: {
   error: string | null;
   isConnecting: boolean;
 }) {
-  const [url, setUrl] = useState(() => localStorage.getItem('orchestra:wsUrl') ?? 'wss://relay-production-62fa.up.railway.app');
+  const [url, setUrl] = useState(() => localStorage.getItem('orchestra:wsUrl') ?? 'wss://relay-production-62fa.up.railway.app/ws');
   const [token, setToken] = useState(() => localStorage.getItem('orchestra:token') ?? '');
 
   const handleConnect = () => {
