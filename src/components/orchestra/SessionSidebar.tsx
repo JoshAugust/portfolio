@@ -18,7 +18,7 @@ function glowStyle(current: number, max: number): React.CSSProperties {
   return { animation: `orange-glow-${level} ${duration} ease-in-out infinite` };
 }
 
-function timeAgo(dateStr?: string): string {
+function timeAgo(dateStr?: string | number): string {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -51,8 +51,8 @@ export function SessionSidebar() {
   const editRef = useRef<HTMLInputElement>(null);
 
   const sorted = [...sessions].sort((a, b) => {
-    const ta = a.updatedAt ?? a.createdAt ?? '';
-    const tb = b.updatedAt ?? b.createdAt ?? '';
+    const ta = String(a.updatedAt ?? a.createdAt ?? '');
+    const tb = String(b.updatedAt ?? b.createdAt ?? '');
     return tb.localeCompare(ta);
   });
 
