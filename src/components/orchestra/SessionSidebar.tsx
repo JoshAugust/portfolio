@@ -234,7 +234,7 @@ export function SessionSidebar() {
               <MoreVertical
                 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity"
                 style={{ color: 'var(--text-muted)' }}
-                onClick={(e) => handleContextMenu(e, s.key)}
+                onClick={(e) => { e.stopPropagation(); handleContextMenu(e, s.key); }}
               />
             </div>
           );

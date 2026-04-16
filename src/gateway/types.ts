@@ -141,6 +141,7 @@ export interface ModelInfo {
 export interface ChatSendParams {
   sessionKey: string;
   message: string;
+  idempotencyKey?: string;
   deliver?: string;
 }
 

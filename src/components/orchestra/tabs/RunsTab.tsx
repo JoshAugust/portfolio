@@ -47,10 +47,25 @@ export function RunsTab() {
 
   useEffect(() => {
     refreshCronRuns({ limit: 10 });
-  }, [refreshCronRuns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const mainRuns = sessions.filter((s) => !s.key.includes('subagent'));
+  // Only show sessions that are actually running (not all sessions)
+  const allMain = sessions.filter((s) => !s.key.includes('subagent'));
   const subAgents = sessions.filter((s) => s.key.includes('subagent'));
+  
+  // A session is "running" if it has a running status or was very recently active
+  const mainRuns = allMain.filter((s) => {
+    const status = (s as any).status ?? (s as any).runStatus;
+    if (status === 'running' || status === 'streaming') return true;
+    // Also include sessions updated in the last 60 seconds as potentially active
+    const ts = (s as any).updatedAt;
+    if (ts) {
+      const age = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+      return age < 60_000;
+    }
+    return false;
+  });
 
   // Split sub-agents into Active and Recent
   const { activeSubAgents, recentSubAgents } = useMemo(() => {
@@ -94,12 +109,15 @@ export function RunsTab() {
               <div key={s.key} className="flex items-center gap-2 px-2 py-1.5 rounded-md" style={{ background: 'var(--bg-tertiary)' }}>
                 {statusDot('running')}
                 <span className="text-xs truncate flex-1" style={{ color: 'var(--text-secondary)' }}>
-                  {s.label ?? s.key.split(':').pop()}
+                  {s.label ?? (s as any).subject ?? s.key.split(':').pop()}
                 </span>
               </div>
             ))}
           </div>
         )}
+        <div className="text-[10px] px-2 mt-1" style={{ color: 'var(--text-muted)' }}>
+          {allMain.length} total sessions · {subAgents.length} sub-agents
+        </div>
       </div>
 
       {/* Active Sub-agents */}

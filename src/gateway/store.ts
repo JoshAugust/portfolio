@@ -278,6 +278,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       await client.chatSend({
         sessionKey: activeSessionKey,
         message: text,
+        idempotencyKey: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       });
     },
 

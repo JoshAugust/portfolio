@@ -24,12 +24,14 @@ export function ControlTab() {
   const { overview, refresh: refreshOverview } = useOverview();
   const { logs, refresh: refreshLogs } = useLogs();
 
+  // Load data once on mount — empty deps to prevent infinite loop
   useEffect(() => {
     refreshPresence();
     refreshChannels();
     refreshOverview();
     refreshLogs(30);
-  }, [refreshPresence, refreshChannels, refreshOverview, refreshLogs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Parse overview data
   const uptime = overview?.uptime as string | undefined;
