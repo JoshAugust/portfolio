@@ -76,7 +76,7 @@
   }
 
   .badge-keyword {
-    @apply inline-flex items-center px-3 py-0.5 rounded-full bg-primary text-primary-foreground font-mono;
+    @apply inline-flex items-center px-3 py-0.5 rounded-full bg-primary text-primary-foreground;
     font-size: 0.65em;
     font-weight: 500;
     letter-spacing: 0.06em;

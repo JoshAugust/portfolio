@@ -148,19 +148,19 @@ const Index = () => {
           <span>Hello! I'm </span>
           <KeywordBadge onHover={() => reveal(1)}>JOSHUA</KeywordBadge>
 
-          <span className={blur(1)}> Augustine. I'm an <Highlight isRevealed={revealed.has(1)}>AI Orchestration &amp; Marketing Transformation Strategist</Highlight>, and a </span>
+          <span className={blur(1)}> Augustine. I build <Highlight isRevealed={revealed.has(1)}>agentic AI systems</Highlight> and I'm a </span>
           <KeywordBadge onHover={() => reveal(2)}>CAMBRIDGE</KeywordBadge>
 
           <span className={blur(2)}> MBA candidate. My background is in Mechanical </span>
           <KeywordBadge onHover={() => reveal(3)}>ENGINEERING</KeywordBadge>
 
-          <span className={blur(3)}>, but I fell in love with everything at the intersection of technology and </span>
+          <span className={blur(3)}>, but I fell in love with everything at the intersection of AI and </span>
           <KeywordBadge onHover={() => reveal(4)}>STRATEGY</KeywordBadge>
 
-          <span className={blur(4)}>. I architect <Highlight isRevealed={revealed.has(4)}>GenAI workflows</Highlight> and human-in-the-loop </span>
+          <span className={blur(4)}>. I'm part of the <Highlight isRevealed={revealed.has(4)}>OpenClaw</Highlight> open-source community, building tools for autonomous </span>
           <KeywordBadge onHover={() => reveal(5)}>AGENTS</KeywordBadge>
 
-          <span className={blur(5)}> that reduced operational build-times by <Highlight isRevealed={revealed.has(5)}>90%</Highlight>. I bridge the gap between engineering and non-technical </span>
+          <span className={blur(5)}> — from <Highlight isRevealed={revealed.has(5)}>multi-agent orchestration</Highlight> to real-time control interfaces. Before that, I bridged the gap between engineering and non-technical </span>
           <KeywordBadge onHover={() => reveal(6)}>STAKEHOLDERS</KeywordBadge>
 
           <span className={blur(6)}> to drive adoption of agile methodologies at enterprise scale. I've managed </span>
@@ -169,7 +169,7 @@ const Index = () => {
           <span className={blur(7)}> for <Highlight isRevealed={revealed.has(7)}>VISA, Broadcom, M&amp;S, and Halfords</Highlight> — handling <Highlight isRevealed={revealed.has(7)}>28-million-record</Highlight> </span>
           <KeywordBadge onHover={() => reveal(8)}>ECOSYSTEMS</KeywordBadge>
 
-          <span className={blur(8)}>. I also build things: agentic learning systems, financial modelling tools, and scraping-free </span>
+          <span className={blur(8)}>. I also build things: multi-agent pipelines, financial modelling tools, and AI-powered </span>
           <KeywordBadge onHover={() => reveal(9)}>CRMs</KeywordBadge>
 
           <span className={blur(9)}>. Oh, and I'm a music </span>
