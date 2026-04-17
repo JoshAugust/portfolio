@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useCron, useCronRunHistory } from '../../gateway';
 import type { CronJob, CronRunEntry } from '../../gateway';
 
-function timeAgo(dateStr?: string): string {
-  if (!dateStr) return 'never';
-  const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(ts?: string | number): string {
+  if (!ts) return 'never';
+  const diff = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime());
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -12,6 +12,20 @@ function timeAgo(dateStr?: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+function formatSchedule(sched: unknown): string {
+  if (!sched || typeof sched !== 'object') return String(sched ?? '');
+  const s = sched as Record<string, unknown>;
+  if (s.kind === 'cron') return `cron: ${s.expr ?? '?'}${s.tz ? ` (${s.tz})` : ''}`;
+  if (s.kind === 'every') {
+    const ms = Number(s.everyMs ?? 0);
+    if (ms >= 3600000) return `every ${Math.round(ms / 3600000)}h`;
+    if (ms >= 60000) return `every ${Math.round(ms / 60000)}m`;
+    return `every ${ms}ms`;
+  }
+  if (s.kind === 'at') return `at: ${String(s.at ?? '?')}`;
+  return JSON.stringify(sched);
 }
 
 function StatusDot({ status }: { status?: string }) {
@@ -57,11 +71,11 @@ function CronJobRow({
             className="text-xs truncate"
             style={{ color: 'var(--text-primary)' }}
           >
-            {job.label ?? job.id}
+            {job.name ?? job.label ?? job.id.slice(0, 8)}
           </div>
           <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {job.schedule}
-            {job.lastRun ? ` · ${timeAgo(job.lastRun)}` : ''}
+            {formatSchedule(job.schedule)}
+            {job.state?.lastRunAtMs ? ` · ${timeAgo(job.state.lastRunAtMs)}` : job.lastRun ? ` · ${timeAgo(job.lastRun)}` : ''}
           </div>
         </div>
         <span

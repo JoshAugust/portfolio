@@ -61,12 +61,14 @@ export interface ChatMessage {
 
 export interface CronJob {
   id: string;
+  name?: string;
   label?: string;
-  schedule: string;
+  schedule: unknown; // { kind: 'cron'|'every'|'at', expr?: string, everyMs?: number, tz?: string }
   enabled: boolean;
   task?: string;
   lastRun?: string;
   nextRun?: string;
+  state?: { lastRunAtMs?: number; nextRunAtMs?: number; lastRunStatus?: string };
 }
 
 export interface CronStatus {

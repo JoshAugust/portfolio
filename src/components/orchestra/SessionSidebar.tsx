@@ -162,7 +162,16 @@ export function SessionSidebar() {
   const [editValue, setEditValue] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
 
-  const sorted = [...sessions].sort((a, b) => {
+  // Filter out cron and daemon sessions from Chats tab — they have their own tabs
+  const chatSessions = sessions.filter((s) => {
+    const key = s.key;
+    if (key.includes(':cron:')) return false;
+    if (key.includes(':heartbeat')) return false;
+    if (key.includes(':isolated') && !key.includes('subagent')) return false;
+    return true;
+  });
+
+  const sorted = [...chatSessions].sort((a, b) => {
     const ta = String(a.updatedAt ?? a.createdAt ?? '');
     const tb = String(b.updatedAt ?? b.createdAt ?? '');
     return tb.localeCompare(ta);
