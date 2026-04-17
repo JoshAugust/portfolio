@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { MessageSquare, Plus, MoreVertical } from 'lucide-react';
-import { useSessions, useCapacity } from '../../gateway';
+import { useSessions, useCapacity, usePanelTab } from '../../gateway';
 import type { Session } from '../../gateway';
 import { useGatewayStore } from '../../gateway';
 import { SearchBar } from './SearchBar';
+import { CronsPanel } from './CronsPanel';
+import { DaemonsPanel } from './DaemonsPanel';
 
 // ─── Glow helper ─────────────────────────────────────────────────────────────
 
@@ -112,9 +114,45 @@ function SessionStatusDot({ sessionKey }: { sessionKey: string }) {
   );
 }
 
+// ─── Tab button ──────────────────────────────────────────────────────────────
+
+function TabButton({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-medium cursor-pointer transition-colors relative"
+      style={{
+        color: active ? 'var(--corgi-orange)' : 'var(--text-muted)',
+        background: 'transparent',
+        border: 'none',
+      }}
+    >
+      <span>{icon}</span>
+      <span>{label}</span>
+      {active && (
+        <span
+          className="absolute bottom-0 left-2 right-2 rounded-t"
+          style={{ height: 2, background: 'var(--corgi-orange)' }}
+        />
+      )}
+    </button>
+  );
+}
+
 export function SessionSidebar() {
   const { sessions, activeSessionKey, switchSession, renameSession, resetSession } = useSessions();
   const { mainRuns } = useCapacity();
+  const { activePanelTab, setActivePanelTab } = usePanelTab();
   const containerGlow = useMemo(
     () => glowStyle(mainRuns.current, mainRuns.max),
     [mainRuns.current, mainRuns.max],
@@ -174,21 +212,38 @@ export function SessionSidebar() {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Sessions</span>
-        <button
-          className="p-1.5 rounded-md transition-colors cursor-pointer hover:opacity-80"
-          style={{ background: 'var(--corgi-orange)' }}
-          title="New Chat"
-        >
-          <Plus className="w-3.5 h-3.5 text-white" />
-        </button>
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {activePanelTab === 'chats' ? 'Sessions' : activePanelTab === 'crons' ? 'Cron Jobs' : 'Daemons'}
+        </span>
+        {activePanelTab === 'chats' && (
+          <button
+            className="p-1.5 rounded-md transition-colors cursor-pointer hover:opacity-80"
+            style={{ background: 'var(--corgi-orange)' }}
+            title="New Chat"
+          >
+            <Plus className="w-3.5 h-3.5 text-white" />
+          </button>
+        )}
       </div>
 
-      {/* Search */}
-      <SearchBar />
+      {/* Tabs */}
+      <div className="flex shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <TabButton icon="💬" label="Chats" active={activePanelTab === 'chats'} onClick={() => setActivePanelTab('chats')} />
+        <TabButton icon="⏰" label="Crons" active={activePanelTab === 'crons'} onClick={() => setActivePanelTab('crons')} />
+        <TabButton icon="🤖" label="Bots" active={activePanelTab === 'daemons'} onClick={() => setActivePanelTab('daemons')} />
+      </div>
 
-      {/* Session list */}
-      <div className="flex-1 overflow-y-auto py-1">
+      {/* Search (only on chats tab) */}
+      {activePanelTab === 'chats' && <SearchBar />}
+
+      {/* Crons tab */}
+      {activePanelTab === 'crons' && <CronsPanel />}
+
+      {/* Daemons tab */}
+      {activePanelTab === 'daemons' && <DaemonsPanel />}
+
+      {/* Session list (chats tab) */}
+      {activePanelTab === 'chats' && <div className="flex-1 overflow-y-auto py-1">
         {sorted.map((s) => {
           const isActive = s.key === activeSessionKey;
           return (
@@ -245,7 +300,7 @@ export function SessionSidebar() {
             No sessions yet
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Context menu */}
       {contextMenu && (

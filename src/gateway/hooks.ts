@@ -300,22 +300,36 @@ export function useSearch() {
 
 export function useCapacity() {
   const sessions = useGatewayStore(selectSessionsList);
-  const overview = useGatewayStore((s) => s.overview);
+  const activeRunKeys = useGatewayStore((s) => s.activeRunKeys);
 
   return useMemo(() => {
-    // Use overview data if available (has real run counts)
-    // Otherwise estimate conservatively
     const subAgentSessions = sessions.filter((s) => s.key.includes('subagent'));
     const mainSessions = sessions.filter((s) => !s.key.includes('subagent'));
 
+    const activeKeysArr = [...activeRunKeys];
+    const mainActiveKeys = activeKeysArr.filter(k => !k.includes('subagent'));
+    const subActiveKeys = activeKeysArr.filter(k => k.includes('subagent'));
+
     return {
-      mainRuns: { current: (overview as any)?.activeRuns ?? 0, max: 4 },
-      subAgents: {
-        current: (overview as any)?.activeSubAgents ?? subAgentSessions.filter(s => (s as any).running).length,
-        max: 50,
-      },
+      mainRuns: { current: mainActiveKeys.length, max: 4 },
+      subAgents: { current: subActiveKeys.length, max: 50 },
       sessions: { total: sessions.length, main: mainSessions.length, subAgents: subAgentSessions.length },
-      connectedClients: 0,
     };
-  }, [sessions, overview]);
+  }, [sessions, activeRunKeys]);
+}
+
+// ─── usePanelTab ────────────────────────────────────────────────────────────
+
+export function usePanelTab() {
+  const activePanelTab = useGatewayStore((s) => s.activePanelTab);
+  const setActivePanelTab = useGatewayStore((s) => s.setActivePanelTab);
+  return { activePanelTab, setActivePanelTab };
+}
+
+// ─── useCronRunHistory ──────────────────────────────────────────────────────
+
+export function useCronRunHistory() {
+  const cronRunHistory = useGatewayStore((s) => s.cronRunHistory);
+  const refreshCronRunHistory = useGatewayStore((s) => s.refreshCronRunHistory);
+  return { cronRunHistory, refreshCronRunHistory };
 }

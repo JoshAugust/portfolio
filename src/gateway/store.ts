@@ -33,6 +33,15 @@ export interface GatewayState {
   sessions: Session[];
   activeSessionKey: string;
 
+  // Active runs tracking (from agent events)
+  activeRunKeys: Set<string>;
+
+  // Snapshot from hello-ok
+  gatewaySnapshot: Record<string, unknown> | null;
+
+  // Left panel tab
+  activePanelTab: 'chats' | 'crons' | 'daemons';
+
   // Chat (per session)
   chatMessages: Map<string, ChatMessage[]>;
   chatStreaming: boolean;
@@ -42,6 +51,7 @@ export interface GatewayState {
   cronJobs: CronJob[];
   cronStatus: CronStatus | null;
   cronRuns: CronRunEntry[];
+  cronRunHistory: Map<string, CronRunEntry[]>;
 
   // Agent info
   agentFiles: AgentFile[];
@@ -101,6 +111,8 @@ export interface GatewayState {
   updateCronJob: (jobId: string, patch: Record<string, unknown>) => Promise<void>;
   removeCronJob: (jobId: string) => Promise<void>;
   runCronJob: (jobId: string) => Promise<void>;
+  refreshCronRunHistory: (jobId: string) => Promise<void>;
+  setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons') => void;
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
@@ -159,13 +171,18 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       }
     });
 
-    // Agent events
+    // Agent events — track active runs
     client.on('agent', (frame: EventFrame) => {
       const p = frame.payload as unknown as AgentEventPayload;
+      const sessionKey = p.sessionKey ?? get().activeSessionKey;
       if (p.status === 'started') {
-        set({ chatStreaming: true, chatStreamText: '' });
+        const keys = new Set(get().activeRunKeys);
+        keys.add(sessionKey);
+        set({ activeRunKeys: keys, chatStreaming: true, chatStreamText: '' });
       } else if (p.status === 'finished' || p.status === 'error') {
-        set({ chatStreaming: false });
+        const keys = new Set(get().activeRunKeys);
+        keys.delete(sessionKey);
+        set({ activeRunKeys: keys, chatStreaming: false });
       }
     });
 
@@ -182,6 +199,31 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         set({ presence: [...current, entry] });
       } else if (p.action === 'disconnected') {
         set({ presence: current.filter((e) => e.clientId !== p.clientId) });
+      }
+    });
+
+    // Capture hello-ok snapshot and seed active runs
+    client.on('hello-ok', (frame: EventFrame) => {
+      const snapshot = (frame.payload as any)?.snapshot;
+      if (snapshot) {
+        set({ gatewaySnapshot: snapshot });
+        // Seed active runs from recent sessions (age < 60s = potentially running)
+        try {
+          const recent = snapshot?.health?.agents?.[0]?.sessions?.recent;
+          if (Array.isArray(recent)) {
+            const activeKeys = new Set<string>();
+            for (const s of recent) {
+              if (typeof s.age === 'number' && s.age < 60000 && s.key) {
+                activeKeys.add(s.key);
+              }
+            }
+            if (activeKeys.size > 0) {
+              set({ activeRunKeys: activeKeys });
+            }
+          }
+        } catch {
+          // Graceful — snapshot parsing is best-effort
+        }
       }
     });
 
@@ -206,12 +248,16 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     client: null,
     sessions: [],
     activeSessionKey: '',
+    activeRunKeys: new Set<string>(),
+    gatewaySnapshot: null,
+    activePanelTab: 'chats',
     chatMessages: new Map(),
     chatStreaming: false,
     chatStreamText: '',
     cronJobs: [],
     cronStatus: null,
     cronRuns: [],
+    cronRunHistory: new Map<string, CronRunEntry[]>(),
     agentFiles: [],
     toolsCatalog: [],
     skills: [],
@@ -224,6 +270,12 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     execApprovals: [],
     overview: null,
     logs: [],
+
+    // ── Helpers ────────────────────────────────────────────────────────
+
+    setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons') => {
+      set({ activePanelTab: tab });
+    },
 
     // ── Actions ─────────────────────────────────────────────────────────
 
@@ -293,7 +345,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     loadHistory: async (sessionKey: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
 
       const result = await client.chatHistory({ sessionKey, limit: 100 });
       const messages = ((result as Record<string, unknown>)?.messages ?? []) as ChatMessage[];
@@ -304,7 +356,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     renameSession: async (key: string, label: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.sessionsPatch({ sessionKey: key, label });
       // Refresh sessions to pick up the change
       await get().refreshSessions();
@@ -312,7 +364,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     resetSession: async (key: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.sessionsReset({ sessionKey: key });
       // Clear local messages
       const msgs = new Map(get().chatMessages);
@@ -322,14 +374,14 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     abortChat: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.chatAbort();
       set({ chatStreaming: false, chatStreamText: '' });
     },
 
     refreshSessions: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.sessionsList();
       const sessions = ((result as Record<string, unknown>)?.sessions ?? []) as Session[];
       set({ sessions });
@@ -341,7 +393,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshCron: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const [jobsResult, statusResult] = await Promise.all([
         client.cronList(),
         client.cronStatus(),
@@ -354,7 +406,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshCronRuns: async (params = {}) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.cronRuns(params);
       set({
         cronRuns: ((result as Record<string, unknown>)?.runs ?? []) as CronRunEntry[],
@@ -363,7 +415,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshAgentFiles: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.agentFilesList();
       set({
         agentFiles: ((result as Record<string, unknown>)?.files ?? []) as AgentFile[],
@@ -372,7 +424,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshTools: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.toolsCatalog();
       set({
         toolsCatalog: ((result as Record<string, unknown>)?.tools ?? []) as Tool[],
@@ -381,7 +433,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshSkills: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.skillsStatus();
       set({
         skills: ((result as Record<string, unknown>)?.skills ?? []) as Skill[],
@@ -390,7 +442,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshPresence: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.systemPresence();
       set({
         presence: ((result as Record<string, unknown>)?.clients ?? []) as PresenceEntry[],
@@ -399,7 +451,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshChannels: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.channelsStatus();
       set({
         channels: ((result as Record<string, unknown>)?.channels ?? []) as ChannelStatus[],
@@ -408,7 +460,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshNodes: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.nodeList();
       set({
         nodes: ((result as Record<string, unknown>)?.nodes ?? []) as NodeInfo[],
@@ -417,7 +469,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshModels: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       const result = await client.modelsList();
       set({
         models: ((result as Record<string, unknown>)?.models ?? []) as ModelInfo[],
@@ -426,14 +478,14 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     getFileContent: async (path: string) => {
       const client = get().client;
-      if (!client) return undefined;
+      if (!client || get().connectionStatus !== 'connected') return undefined;
       const result = await client.agentFilesGet({ path });
       return (result as Record<string, unknown>)?.content as string | undefined;
     },
 
     refreshUsage: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       try {
         const [usageResult, costResult] = await Promise.all([
           client.sessionsUsage(),
@@ -450,7 +502,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshExecApprovals: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       try {
         const result = await client.getExecApprovals();
         set({
@@ -463,7 +515,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     resolveApproval: async (id: string, decision: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       try {
         await client.resolveExecApproval(id, decision as 'allow-once' | 'allow-always' | 'deny');
         // Remove from local state
@@ -475,13 +527,13 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     saveAgentFile: async (path: string, content: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.setAgentFile({ path, content });
     },
 
     refreshOverview: async () => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       try {
         const result = await client.overviewSnapshot();
         set({ overview: (result as Record<string, unknown>) ?? null });
@@ -492,7 +544,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     refreshLogs: async (limit = 30) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       try {
         const result = await client.tailLogs({ limit });
         const lines = ((result as Record<string, unknown>)?.lines ?? []) as string[];
@@ -504,29 +556,43 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     addCronJob: async (job: Record<string, unknown>) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.addCronJob({ job });
       await get().refreshCron();
     },
 
     updateCronJob: async (jobId: string, patch: Record<string, unknown>) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.updateCronJob({ jobId, patch });
       await get().refreshCron();
     },
 
     removeCronJob: async (jobId: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.removeCronJob({ jobId });
       await get().refreshCron();
     },
 
     runCronJob: async (jobId: string) => {
       const client = get().client;
-      if (!client) return;
+      if (!client || get().connectionStatus !== 'connected') return;
       await client.runCronJob({ jobId });
+    },
+
+    refreshCronRunHistory: async (jobId: string) => {
+      const client = get().client;
+      if (!client || get().connectionStatus !== 'connected') return;
+      try {
+        const result = await client.cronRuns({ id: jobId, limit: 10 });
+        const runs = ((result as Record<string, unknown>)?.runs ?? []) as CronRunEntry[];
+        const history = new Map(get().cronRunHistory);
+        history.set(jobId, runs);
+        set({ cronRunHistory: history });
+      } catch {
+        // Graceful
+      }
     },
   };
 });

@@ -20,6 +20,8 @@ export {
   useLogs,
   useConfig,
   useSearch,
+  usePanelTab,
+  useCronRunHistory,
 } from './hooks';
 export type {
   // Protocol
