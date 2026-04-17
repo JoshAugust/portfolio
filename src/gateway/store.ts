@@ -40,7 +40,7 @@ export interface GatewayState {
   gatewaySnapshot: Record<string, unknown> | null;
 
   // Left panel tab
-  activePanelTab: 'chats' | 'crons' | 'daemons';
+  activePanelTab: 'chats' | 'crons' | 'daemons' | 'subagents';
 
   // Chat (per session)
   chatMessages: Map<string, ChatMessage[]>;
@@ -112,7 +112,7 @@ export interface GatewayState {
   removeCronJob: (jobId: string) => Promise<void>;
   runCronJob: (jobId: string) => Promise<void>;
   refreshCronRunHistory: (jobId: string) => Promise<void>;
-  setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons') => void;
+  setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons' | 'subagents') => void;
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
 
     // ── Helpers ────────────────────────────────────────────────────────
 
-    setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons') => {
+    setActivePanelTab: (tab: 'chats' | 'crons' | 'daemons' | 'subagents') => {
       set({ activePanelTab: tab });
     },
 

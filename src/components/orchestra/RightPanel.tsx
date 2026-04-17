@@ -59,11 +59,11 @@ export function RightPanel() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium cursor-pointer transition-colors relative"
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-3 cursor-pointer transition-colors relative"
               style={{ color: isActive ? 'var(--corgi-orange)' : 'var(--text-muted)' }}
             >
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
+              <tab.icon className="w-4 h-4" />
+              <span className="text-[10px] font-medium tracking-wide">{tab.label}</span>
               {isActive && (
                 <span
                   className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"

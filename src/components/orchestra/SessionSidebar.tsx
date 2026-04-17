@@ -6,6 +6,7 @@ import { useGatewayStore } from '../../gateway';
 import { SearchBar } from './SearchBar';
 import { CronsPanel } from './CronsPanel';
 import { DaemonsPanel } from './DaemonsPanel';
+import { SubagentsPanel } from './SubagentsPanel';
 
 // ─── Glow helper ─────────────────────────────────────────────────────────────
 
@@ -114,40 +115,14 @@ function SessionStatusDot({ sessionKey }: { sessionKey: string }) {
   );
 }
 
-// ─── Tab button ──────────────────────────────────────────────────────────────
+// ─── Sidebar tabs ────────────────────────────────────────────────────────────
 
-function TabButton({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-medium cursor-pointer transition-colors relative"
-      style={{
-        color: active ? 'var(--corgi-orange)' : 'var(--text-muted)',
-        background: 'transparent',
-        border: 'none',
-      }}
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
-      {active && (
-        <span
-          className="absolute bottom-0 left-2 right-2 rounded-t"
-          style={{ height: 2, background: 'var(--corgi-orange)' }}
-        />
-      )}
-    </button>
-  );
-}
+const SIDEBAR_TABS = [
+  { id: 'chats' as const, icon: '💬', label: 'Chats' },
+  { id: 'crons' as const, icon: '⏰', label: 'Crons' },
+  { id: 'daemons' as const, icon: '🤖', label: 'Bots' },
+  { id: 'subagents' as const, icon: '🧩', label: 'Agents' },
+];
 
 export function SessionSidebar() {
   const { sessions, activeSessionKey, switchSession, renameSession, resetSession } = useSessions();
@@ -168,6 +143,7 @@ export function SessionSidebar() {
     if (key.includes(':cron:')) return false;
     if (key.includes(':heartbeat')) return false;
     if (key.includes(':isolated') && !key.includes('subagent')) return false;
+    if (key.includes('subagent')) return false;
     return true;
   });
 
@@ -222,7 +198,7 @@ export function SessionSidebar() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          {activePanelTab === 'chats' ? 'Sessions' : activePanelTab === 'crons' ? 'Cron Jobs' : 'Daemons'}
+          {activePanelTab === 'chats' ? 'Sessions' : activePanelTab === 'crons' ? 'Cron Jobs' : activePanelTab === 'subagents' ? 'Sub-agents' : 'Daemons'}
         </span>
         {activePanelTab === 'chats' && (
           <button
@@ -237,9 +213,30 @@ export function SessionSidebar() {
 
       {/* Tabs */}
       <div className="flex shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <TabButton icon="💬" label="Chats" active={activePanelTab === 'chats'} onClick={() => setActivePanelTab('chats')} />
-        <TabButton icon="⏰" label="Crons" active={activePanelTab === 'crons'} onClick={() => setActivePanelTab('crons')} />
-        <TabButton icon="🤖" label="Bots" active={activePanelTab === 'daemons'} onClick={() => setActivePanelTab('daemons')} />
+        {SIDEBAR_TABS.map((tab) => {
+          const isActive = tab.id === activePanelTab;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActivePanelTab(tab.id)}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-3 cursor-pointer transition-colors relative"
+              style={{
+                color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                background: 'transparent',
+                border: 'none',
+              }}
+            >
+              <span className="text-base">{tab.icon}</span>
+              <span className="text-[10px] font-medium tracking-wide">{tab.label}</span>
+              {isActive && (
+                <span
+                  className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
+                  style={{ background: 'var(--corgi-orange)' }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search (only on chats tab) */}
@@ -250,6 +247,9 @@ export function SessionSidebar() {
 
       {/* Daemons tab */}
       {activePanelTab === 'daemons' && <DaemonsPanel />}
+
+      {/* Sub-agents tab */}
+      {activePanelTab === 'subagents' && <SubagentsPanel />}
 
       {/* Session list (chats tab) */}
       {activePanelTab === 'chats' && <div className="flex-1 overflow-y-auto py-1">
