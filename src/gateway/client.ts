@@ -9,6 +9,7 @@ import type {
   ChatAbortParams,
   SessionsPatchParams,
   SessionsResetParams,
+  SessionsDeleteParams,
   CronRunsParams,
   AgentFilesGetParams,
 } from './types';
@@ -265,6 +266,10 @@ export class GatewayClient {
 
   sessionsPatch(params: SessionsPatchParams) {
     return this.request('sessions.patch', params as unknown as Record<string, unknown>);
+  }
+
+  sessionsDelete(params: SessionsDeleteParams) {
+    return this.request('sessions.delete', params as unknown as Record<string, unknown>);
   }
 
   cronList() {

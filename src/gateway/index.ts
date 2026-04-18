@@ -49,6 +49,7 @@ export type {
   ChatAbortParams,
   SessionsResetParams,
   SessionsPatchParams,
+  SessionsDeleteParams,
   CronRunsParams,
   AgentFilesGetParams,
   // Events

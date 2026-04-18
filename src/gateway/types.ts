@@ -172,6 +172,10 @@ export interface CronRunsParams {
   offset?: number;
 }
 
+export interface SessionsDeleteParams {
+  sessionKey: string;
+}
+
 export interface AgentFilesGetParams {
   path: string;
 }

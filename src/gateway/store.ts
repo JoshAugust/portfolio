@@ -87,6 +87,8 @@ export interface GatewayState {
   loadHistory: (sessionKey: string) => Promise<void>;
   renameSession: (key: string, label: string) => Promise<void>;
   resetSession: (key: string) => Promise<void>;
+  deleteSession: (key: string) => Promise<void>;
+  createNewChat: () => void;
   abortChat: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   refreshCron: () => Promise<void>;
@@ -363,6 +365,9 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         message: text,
         idempotencyKey: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       });
+
+      // Refresh sessions so new sessions (e.g., webchat) appear in the sidebar
+      setTimeout(() => get().refreshSessions(), 500);
     },
 
     switchSession: (key: string) => {
@@ -437,6 +442,40 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       const msgs = new Map(get().chatMessages);
       msgs.delete(key);
       set({ chatMessages: msgs });
+    },
+
+    deleteSession: async (key: string) => {
+      const client = get().client;
+      if (!client || get().connectionStatus !== 'connected') return;
+      try {
+        await client.sessionsDelete({ sessionKey: key });
+      } catch {
+        // Graceful — some gateways may not support sessions.delete
+      }
+      // Remove from local state regardless
+      const msgs = new Map(get().chatMessages);
+      msgs.delete(key);
+      const sessions = get().sessions.filter((s) => s.key !== key);
+      const updates: Partial<GatewayState> = { chatMessages: msgs, sessions };
+      // If we deleted the active session, switch to the first remaining or clear
+      if (get().activeSessionKey === key) {
+        updates.activeSessionKey = sessions[0]?.key ?? '';
+        // Load history for the new active session
+        if (updates.activeSessionKey) {
+          setTimeout(() => get().loadHistory(updates.activeSessionKey as string), 0);
+        }
+      }
+      set(updates);
+    },
+
+    createNewChat: () => {
+      // Generate a new webchat session key
+      const uuid = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const newKey = `webchat:${uuid}`;
+      // Set as active — session will be created on the backend when first message is sent
+      const msgs = new Map(get().chatMessages);
+      msgs.set(newKey, []);
+      set({ activeSessionKey: newKey, chatMessages: msgs });
     },
 
     abortChat: async () => {

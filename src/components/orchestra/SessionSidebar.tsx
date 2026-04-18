@@ -125,7 +125,7 @@ const SIDEBAR_TABS = [
 ];
 
 export function SessionSidebar() {
-  const { sessions, activeSessionKey, switchSession, renameSession, resetSession } = useSessions();
+  const { sessions, activeSessionKey, switchSession, renameSession, resetSession, deleteSession, createNewChat } = useSessions();
   const { mainRuns } = useCapacity();
   const { activePanelTab, setActivePanelTab } = usePanelTab();
   const containerGlow = useMemo(
@@ -205,6 +205,7 @@ export function SessionSidebar() {
             className="p-1.5 rounded-md transition-colors cursor-pointer hover:opacity-80"
             style={{ background: 'var(--corgi-orange)' }}
             title="New Chat"
+            onClick={createNewChat}
           >
             <Plus className="w-3.5 h-3.5 text-white" />
           </button>
@@ -324,13 +325,14 @@ export function SessionSidebar() {
           }}
         >
           {[
-            { label: 'Rename', action: () => { const s = sessions.find(s => s.key === contextMenu.key); if (s) handleDoubleClick(s); } },
-            { label: 'Reset', action: () => resetSession(contextMenu.key) },
+            { label: 'Rename', action: () => { const s = sessions.find(s => s.key === contextMenu.key); if (s) handleDoubleClick(s); }, danger: false },
+            { label: 'Reset', action: () => resetSession(contextMenu.key), danger: true },
+            { label: 'Delete', action: () => deleteSession(contextMenu.key), danger: true },
           ].map((item) => (
             <button
               key={item.label}
               className="w-full text-left px-3 py-1.5 text-xs cursor-pointer transition-colors hover:opacity-80"
-              style={{ color: item.label === 'Reset' ? 'var(--danger)' : 'var(--text-secondary)' }}
+              style={{ color: item.danger ? 'var(--danger)' : 'var(--text-secondary)' }}
               onClick={item.action}
             >
               {item.label}

@@ -54,6 +54,8 @@ export function useSessions() {
   const switchSession = useGatewayStore((s) => s.switchSession);
   const renameSession = useGatewayStore((s) => s.renameSession);
   const resetSession = useGatewayStore((s) => s.resetSession);
+  const deleteSession = useGatewayStore((s) => s.deleteSession);
+  const createNewChat = useGatewayStore((s) => s.createNewChat);
   const refreshSessions = useGatewayStore((s) => s.refreshSessions);
 
   const activeSession = useMemo(
@@ -68,6 +70,8 @@ export function useSessions() {
     switchSession,
     renameSession,
     resetSession,
+    deleteSession,
+    createNewChat,
     refreshSessions,
   };
 }
