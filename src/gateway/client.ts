@@ -357,6 +357,10 @@ export class GatewayClient {
     return this.request('sessions.usage', params as Record<string, unknown>);
   }
 
+  usageStatus() {
+    return this.request('usage.status', {});
+  }
+
   usageCost() {
     return this.request('usage.cost', {});
   }

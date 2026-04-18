@@ -40,14 +40,15 @@ export function UsageTab() {
     return () => clearInterval(intervalRef.current);
   }, [refresh]);
 
-  // Parse cost data
-  const totalCost = cost?.totalCost ?? cost?.total ?? null;
-  const models = (cost?.models ?? cost?.breakdown ?? []) as Array<Record<string, unknown>>;
+  // Parse cost data — handle various response shapes from usage.cost / usage.status
+  const totalCost = cost?.totalCost ?? cost?.total ?? cost?.cost ?? null;
+  const models = (cost?.models ?? cost?.breakdown ?? cost?.perModel ?? []) as Array<Record<string, unknown>>;
 
-  // Parse usage data
-  const inputTokens = (usage?.inputTokens ?? usage?.input ?? 0) as number;
-  const outputTokens = (usage?.outputTokens ?? usage?.output ?? 0) as number;
-  const totalTokens = inputTokens + outputTokens;
+  // Parse usage data — handle both sessions.usage and usage.status response shapes
+  const inputTokens = (usage?.inputTokens ?? usage?.input ?? usage?.tokensIn ?? 0) as number;
+  const outputTokens = (usage?.outputTokens ?? usage?.output ?? usage?.tokensOut ?? 0) as number;
+  const totalTokens = (usage?.totalTokens as number | undefined) ?? inputTokens + outputTokens;
+  const requestCount = (usage?.requests ?? usage?.requestCount ?? usage?.calls ?? null) as number | null;
 
   return (
     <div className="p-3 space-y-4">
@@ -80,6 +81,7 @@ export function UsageTab() {
           <StatCard
             label="Total Tokens"
             value={totalTokens > 0 ? totalTokens.toLocaleString() : '—'}
+            sub={requestCount != null ? `${requestCount} requests` : undefined}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Activity, Clock, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
-import { useSessions, useCron } from '../../../gateway';
+import { useSessions, useCron, useGatewayStore } from '../../../gateway';
 
 function statusDot(status?: string) {
   const colors: Record<string, string> = {
@@ -43,6 +43,7 @@ function isRecentlyCreated(s: { createdAt?: string; updatedAt?: string }): boole
 export function RunsTab() {
   const { sessions } = useSessions();
   const { runs, refreshCronRuns } = useCron();
+  const activeRunKeys = useGatewayStore((s) => s.activeRunKeys);
   const [recentOpen, setRecentOpen] = useState(false);
 
   useEffect(() => {
@@ -54,14 +55,13 @@ export function RunsTab() {
   const allMain = sessions.filter((s) => !s.key.includes('subagent'));
   const subAgents = sessions.filter((s) => s.key.includes('subagent'));
   
-  // A session is "running" if it has a running status or was very recently active
+  // A session is "running" if it's in the activeRunKeys set (tracked from real agent events)
+  // or was very recently updated (within 60s)
   const mainRuns = allMain.filter((s) => {
-    const status = (s as any).status ?? (s as any).runStatus;
-    if (status === 'running' || status === 'streaming') return true;
-    // Also include sessions updated in the last 60 seconds as potentially active
-    const ts = (s as any).updatedAt;
+    if (activeRunKeys.has(s.key)) return true;
+    const ts = s.updatedAt;
     if (ts) {
-      const age = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+      const age = Date.now() - new Date(ts).getTime();
       return age < 60_000;
     }
     return false;
@@ -73,8 +73,8 @@ export function RunsTab() {
     const recent: typeof subAgents = [];
 
     for (const s of subAgents) {
-      const isRunning = (s as any).running || (s as any).status === 'running';
-      if (isRunning || isRecentlyCreated(s)) {
+      const isRunning = activeRunKeys.has(s.key) || isRecentlyCreated(s);
+      if (isRunning) {
         active.push(s);
       } else {
         recent.push(s);
@@ -89,7 +89,7 @@ export function RunsTab() {
     });
 
     return { activeSubAgents: active, recentSubAgents: recent.slice(0, 20) };
-  }, [subAgents]);
+  }, [subAgents, activeRunKeys]);
 
   return (
     <div className="p-3 space-y-4">

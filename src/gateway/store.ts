@@ -605,12 +605,15 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       const client = get().client;
       if (!client || get().connectionStatus !== 'connected') return;
       try {
-        const [usageResult, costResult] = await Promise.all([
-          client.sessionsUsage(),
-          client.usageCost(),
+        const [usageResult, costResult, statusResult] = await Promise.all([
+          client.sessionsUsage().catch(() => null),
+          client.usageCost().catch(() => null),
+          client.usageStatus().catch(() => null),
         ]);
+        // Merge usage.status into sessionUsage if sessions.usage failed
+        const usage = (usageResult as Record<string, unknown>) ?? (statusResult as Record<string, unknown>) ?? null;
         set({
-          sessionUsage: (usageResult as Record<string, unknown>) ?? null,
+          sessionUsage: usage,
           costBreakdown: (costResult as Record<string, unknown>) ?? null,
         });
       } catch {
