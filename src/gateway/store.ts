@@ -141,26 +141,48 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       const p = frame.payload as unknown as ChatEventPayload;
       const sessionKey = p.sessionKey ?? get().activeSessionKey;
 
+      // Extract text from various possible formats
+      const rawPayload = frame.payload as Record<string, unknown>;
+      const eventText = p.text ?? (
+        Array.isArray(rawPayload.content)
+          ? (rawPayload.content as Array<Record<string, unknown>>)
+              .filter((s) => s.type === 'text')
+              .map((s) => (s.text as string) ?? '')
+              .join('')
+          : undefined
+      );
+
       if (p.streaming && !p.finished) {
-        // Streaming in progress
+        // Streaming in progress — accumulate text
         set({
           chatStreaming: true,
-          chatStreamText: p.text ?? get().chatStreamText,
+          chatStreamText: eventText ?? get().chatStreamText,
         });
-      } else if (p.finished) {
-        // Stream finished — commit message
+      } else if (p.finished || (!p.streaming && p.role)) {
+        // Stream finished OR direct (non-streaming) message delivery
+        const finalText = eventText ?? get().chatStreamText;
+        if (!finalText && !p.segments) return; // skip empty events
+
         const msgs = new Map(get().chatMessages);
         const sessionMsgs = [...(msgs.get(sessionKey) ?? [])];
+
+        // Preserve raw content array if present (for tool call rendering)
+        const content = Array.isArray(rawPayload.content) ? rawPayload.content : undefined;
+
         const msg: ChatMessage = {
           id: p.messageId ?? `msg-${Date.now()}`,
           role: (p.role as ChatMessage['role']) ?? 'assistant',
-          text: p.text ?? get().chatStreamText,
+          text: finalText ?? '',
           segments: p.segments,
           timestamp: new Date().toISOString(),
           sessionKey,
           model: p.model,
           tokenUsage: p.tokenUsage,
         };
+        // Attach raw content for ChatMessage rendering
+        if (content) {
+          (msg as Record<string, unknown>).content = content;
+        }
         sessionMsgs.push(msg);
         msgs.set(sessionKey, sessionMsgs);
         set({
@@ -206,7 +228,14 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     client.on('hello-ok', (frame: EventFrame) => {
       const snapshot = (frame.payload as any)?.snapshot;
       if (snapshot) {
-        set({ gatewaySnapshot: snapshot });
+        const updates: Partial<GatewayState> = { gatewaySnapshot: snapshot };
+
+        // Set activeSessionKey from sessionDefaults if not already set
+        const mainSessionKey = snapshot?.sessionDefaults?.mainSessionKey;
+        if (mainSessionKey && !get().activeSessionKey) {
+          updates.activeSessionKey = mainSessionKey as string;
+        }
+
         // Seed active runs from recent sessions (age < 60s = potentially running)
         try {
           const recent = snapshot?.health?.agents?.[0]?.sessions?.recent;
@@ -218,12 +247,14 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
               }
             }
             if (activeKeys.size > 0) {
-              set({ activeRunKeys: activeKeys });
+              updates.activeRunKeys = activeKeys;
             }
           }
         } catch {
           // Graceful — snapshot parsing is best-effort
         }
+
+        set(updates);
       }
     });
 
@@ -347,11 +378,47 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       const client = get().client;
       if (!client || get().connectionStatus !== 'connected') return;
 
-      const result = await client.chatHistory({ sessionKey, limit: 100 });
-      const messages = ((result as Record<string, unknown>)?.messages ?? []) as ChatMessage[];
-      const msgs = new Map(get().chatMessages);
-      msgs.set(sessionKey, messages);
-      set({ chatMessages: msgs });
+      try {
+        const result = await client.chatHistory({ sessionKey, limit: 100 });
+        const rawMessages = ((result as Record<string, unknown>)?.messages ?? []) as Record<string, unknown>[];
+
+        // Map gateway messages to our ChatMessage format
+        // Gateway format: { role, content: [{type, text}], timestamp, model, ... }
+        // Our format: { id, role, text, segments, timestamp, sessionKey, model, ... }
+        const messages: ChatMessage[] = rawMessages
+          .filter((raw) => {
+            // Only show user and assistant messages, skip toolResult etc.
+            const role = raw.role as string;
+            return role === 'user' || role === 'assistant';
+          })
+          .map((raw, idx) => {
+            const content = raw.content as Array<Record<string, unknown>> | undefined;
+            // Extract text from content array
+            const text = Array.isArray(content)
+              ? content
+                  .filter((s) => s.type === 'text')
+                  .map((s) => (s.text as string) ?? '')
+                  .join('\n')
+              : (raw.text as string) ?? '';
+
+            const role = raw.role as ChatMessage['role'];
+            return {
+              id: `hist-${sessionKey}-${idx}`,
+              role,
+              text,
+              content: content, // preserve raw content for ChatMessage rendering
+              timestamp: raw.timestamp ? new Date(raw.timestamp as number).toISOString() : undefined,
+              sessionKey,
+              model: raw.model as string | undefined,
+            } as ChatMessage;
+          });
+
+        const msgs = new Map(get().chatMessages);
+        msgs.set(sessionKey, messages);
+        set({ chatMessages: msgs });
+      } catch {
+        // Graceful — history load failure shouldn't crash
+      }
     },
 
     renameSession: async (key: string, label: string) => {
@@ -373,21 +440,33 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     },
 
     abortChat: async () => {
-      const client = get().client;
+      const { client, activeSessionKey } = get();
       if (!client || get().connectionStatus !== 'connected') return;
-      await client.chatAbort();
+      try {
+        await client.chatAbort({ sessionKey: activeSessionKey || undefined });
+      } catch {
+        // Graceful — abort failure shouldn't crash
+      }
       set({ chatStreaming: false, chatStreamText: '' });
     },
 
     refreshSessions: async () => {
       const client = get().client;
       if (!client || get().connectionStatus !== 'connected') return;
-      const result = await client.sessionsList();
-      const sessions = ((result as Record<string, unknown>)?.sessions ?? []) as Session[];
-      set({ sessions });
-      // If no active session and sessions exist, pick the first
-      if (!get().activeSessionKey && sessions.length > 0) {
-        set({ activeSessionKey: sessions[0].key });
+      try {
+        const result = await client.sessionsList();
+        const sessions = ((result as Record<string, unknown>)?.sessions ?? []) as Session[];
+        set({ sessions });
+        // If no active session and sessions exist, pick the main session or first
+        if (!get().activeSessionKey && sessions.length > 0) {
+          const mainKey = (get().gatewaySnapshot as any)?.sessionDefaults?.mainSessionKey;
+          const picked = mainKey && sessions.find(s => s.key === mainKey)
+            ? mainKey
+            : sessions[0].key;
+          set({ activeSessionKey: picked });
+        }
+      } catch {
+        // Graceful — sessions list failure shouldn't crash
       }
     },
 

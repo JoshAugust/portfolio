@@ -194,8 +194,16 @@ export class GatewayClient {
       auth: { token: this.config.token },
       locale: navigator?.language ?? 'en-US',
       userAgent: 'orchestra/1.0.0',
-    }, 15000).then(() => {
-      // hello-ok received as response payload
+    }, 15000).then((payload) => {
+      // Emit a synthetic hello-ok event so the store can capture the snapshot
+      // The gateway sends the snapshot in the connect response, not as a separate event
+      if (payload) {
+        this.emit('hello-ok', {
+          type: 'event',
+          event: 'hello-ok',
+          payload: payload as Record<string, unknown>,
+        } as EventFrame);
+      }
       this.emit('_status', { status: 'connected' } as unknown as EventFrame);
       this._connectionResolve?.();
       this._connectionResolve = null;
