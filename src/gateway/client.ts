@@ -81,10 +81,13 @@ export class GatewayClient {
     };
 
     ws.onclose = () => {
-      this.emit('_status', { status: 'disconnected' } as unknown as EventFrame);
       this._cleanup();
       if (!this._disposed && this.config.reconnect) {
+        // Emit 'connecting' immediately so UI shows reconnecting state
+        this.emit('_status', { status: 'connecting' } as unknown as EventFrame);
         this._scheduleReconnect();
+      } else {
+        this.emit('_status', { status: 'disconnected' } as unknown as EventFrame);
       }
     };
 

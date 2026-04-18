@@ -85,10 +85,11 @@ export function SearchBar() {
       >
         <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
         <input
+          data-search-input
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => { if (query.trim() && results.length > 0) setIsOpen(true); }}
-          placeholder="Search sessions…"
+          placeholder="Search sessions… (⌘K)"
           className="flex-1 text-xs bg-transparent outline-none"
           style={{ color: 'var(--text-primary)' }}
         />
