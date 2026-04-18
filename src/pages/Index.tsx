@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Palette, Radio } from "lucide-react";
+import { Palette, Radio, Crosshair } from "lucide-react";
 
 const PALETTES = [
   { // Default Dark
@@ -114,13 +114,22 @@ const NavBar = () => (
       <a href="#" className="hover:text-foreground transition-colors">Projects</a>
       <a href="#" className="hover:text-foreground transition-colors">Speaking</a>
     </div>
-    <Link
-      to="/orchestra"
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
-    >
-      <Radio className="w-3.5 h-3.5" style={{ color: '#FF5C00' }} />
-      Orchestra
-    </Link>
+    <div className="flex items-center gap-2">
+      <Link
+        to="/orchestra"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
+      >
+        <Radio className="w-3.5 h-3.5" style={{ color: '#FF5C00' }} />
+        Orchestra
+      </Link>
+      <Link
+        to="/prospector"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
+      >
+        <Crosshair className="w-3.5 h-3.5" style={{ color: '#3B82F6' }} />
+        Prospector
+      </Link>
+    </div>
   </nav>
 );
 
