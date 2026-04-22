@@ -134,14 +134,14 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 11,
     type: 'which_hand_wins',
     title: 'The Kicker Trap',
-    scenario: 'The board shows: K♠ Q♦ J♣ T♥ 3♠',
+    scenario: 'The board shows: K♠ Q♦ A♣ T♥ 3♠',
     players: {
       player_a: 'K♦ 5♣',
       player_b: 'K♥ 9♦',
     },
     correctAnswer: 'split',
     explanation:
-      "Both players have a pair of Kings. But the kicker doesn't matter here — the board has Q, J, and T which are all higher than either player's second card (5 and 9). Both players' best five cards are K-K-Q-J-T. When the board cards outrank your kicker, it's always a split pot.",
+      "Both players have a pair of Kings. But the kicker doesn't matter here — the board has A, Q, and T which are all higher than either player's second card (5 and 9). Both players' best five cards are K-K-A-Q-T. When the board cards outrank your kicker, it's always a split pot.",
     source: 'Kicker play fundamentals',
   },
   {
