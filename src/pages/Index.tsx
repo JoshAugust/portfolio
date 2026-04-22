@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Palette, Radio, Crosshair, Spade } from "lucide-react";
+import { Palette, Radio } from "lucide-react";
 
 const PALETTES = [
   { // Default Dark
@@ -110,9 +110,10 @@ const NavBar = () => (
   <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-5 md:px-12">
     <div className="flex items-center gap-8 text-[11px] tracking-[0.2em] uppercase text-muted-foreground font-mono">
       <a href="#" className="text-foreground transition-colors">Home</a>
-      <a href="#" className="hover:text-foreground transition-colors">Writing</a>
-      <a href="#" className="hover:text-foreground transition-colors">Projects</a>
-      <a href="#" className="hover:text-foreground transition-colors">Speaking</a>
+      <Link to="/poker" className="hover:text-foreground transition-colors">Poker</Link>
+      <Link to="/prospector" className="hover:text-foreground transition-colors">Prospector</Link>
+      <Link to="/finchex" className="hover:text-foreground transition-colors">Finchex</Link>
+      <Link to="/music" className="hover:text-foreground transition-colors">Music</Link>
     </div>
     <div className="flex items-center gap-2">
       <Link
@@ -121,20 +122,6 @@ const NavBar = () => (
       >
         <Radio className="w-3.5 h-3.5" style={{ color: '#FF5C00' }} />
         Orchestra
-      </Link>
-      <Link
-        to="/prospector"
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
-      >
-        <Crosshair className="w-3.5 h-3.5" style={{ color: '#3B82F6' }} />
-        Prospector
-      </Link>
-      <Link
-        to="/poker"
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
-      >
-        <Spade className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
-        Poker
       </Link>
     </div>
   </nav>
@@ -191,7 +178,17 @@ const Index = () => {
           <span className={blur(9)}>. Oh, and I'm a music </span>
           <KeywordBadge onHover={() => reveal(10)}>PRODUCER</KeywordBadge>
 
-          <span className={blur(10)}> with songs on streaming services.</span>
+          <span className={blur(10)}> with songs on </span>
+          <a
+            href="https://linktr.ee/secondsunset"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="badge-keyword no-underline hover:scale-105 transition-transform inline-flex"
+            style={{ textDecoration: 'none' }}
+          >
+            STREAMING SERVICES
+          </a>
+          <span className={blur(10)}>.</span>
         </p>
 
         <div className="mt-10 text-[0.95rem] md:text-[1.2rem] lg:text-[1.35rem] font-display">

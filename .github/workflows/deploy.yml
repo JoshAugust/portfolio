@@ -44,6 +44,10 @@ jobs:
           cp dist/index.html dist/poker/index.html
           mkdir -p dist/poker/admin
           cp dist/index.html dist/poker/admin/index.html
+          mkdir -p dist/finchex
+          cp dist/index.html dist/finchex/index.html
+          mkdir -p dist/music
+          cp dist/index.html dist/music/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

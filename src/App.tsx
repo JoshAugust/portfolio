@@ -6,6 +6,8 @@ const OrchestraPage = lazy(() => import('./pages/Orchestra'));
 const ProspectorPage = lazy(() => import('./pages/Prospector'));
 const PokerPage = lazy(() => import('./pages/Poker'));
 const PokerAdminPage = lazy(() => import('./pages/PokerAdmin'));
+const FinchexPage = lazy(() => import('./pages/Finchex'));
+const MusicPage = lazy(() => import('./pages/Music'));
 
 const PageFallback = ({ label }: { label: string }) => (
   <div style={{
@@ -51,6 +53,22 @@ function App() {
           element={
             <Suspense fallback={<PageFallback label="Loading Admin…" />}>
               <PokerAdminPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/finchex"
+          element={
+            <Suspense fallback={<PageFallback label="Loading Finchex…" />}>
+              <FinchexPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/music"
+          element={
+            <Suspense fallback={<PageFallback label="Loading Music…" />}>
+              <MusicPage />
             </Suspense>
           }
         />
