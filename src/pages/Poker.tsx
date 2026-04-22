@@ -3,6 +3,58 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Clock, Target, ChevronRight, RotateCcw, Spade } from 'lucide-react';
 import { pokerQuestions, type PokerQuestion, type PokerOption } from '../data/pokerQuestions';
 
+// ─── Storage key ───────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'mbat-poker-submissions';
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+interface SubmissionRecord {
+  name: string;
+  score: number;
+  total: number;
+  totalMs: number;
+  avgMs: number;
+  accuracy: number;
+  completedAt: string;
+  answers: { questionId: number; correct: boolean; timeMs: number }[];
+}
+
+// ─── Card parser ───────────────────────────────────────────────────────────────
+const RANK_MAP: Record<string, string> = {
+  A: 'A', K: 'K', Q: 'Q', J: 'J', T: '0',
+  '2': '2', '3': '3', '4': '4', '5': '5',
+  '6': '6', '7': '7', '8': '8', '9': '9',
+};
+const SUIT_MAP: Record<string, string> = {
+  '♠': 'S', '♥': 'H', '♦': 'D', '♣': 'C',
+};
+
+interface ParsedCard {
+  rank: string;
+  suit: string;
+  imageUrl: string;
+}
+
+function parseCards(text: string): ParsedCard[] {
+  const regex = /([AKQJT2-9])([♠♥♦♣])/g;
+  const results: ParsedCard[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const rank = RANK_MAP[match[1]] ?? match[1];
+    const suit = SUIT_MAP[match[2]] ?? match[2];
+    results.push({
+      rank: match[1],
+      suit: match[2],
+      imageUrl: `https://deckofcardsapi.com/static/img/${rank}${suit}.png`,
+    });
+  }
+  return results;
+}
+
+// Strip card tokens and return the remaining text (e.g. "(Fours full of Eights)")
+function remainingText(text: string): string {
+  return text.replace(/[AKQJT2-9][♠♥♦♣]/g, '').trim();
+}
+
 // ─── Suit coloriser ────────────────────────────────────────────────────────────
 function coloriseSuits(text: string): React.ReactNode[] {
   const parts = text.split(/(♥|♦|♠|♣)/g);
@@ -37,16 +89,38 @@ function TimerDisplay({ ms }: { ms: number }) {
   );
 }
 
-// ─── Card display ──────────────────────────────────────────────────────────────
+// ─── Card display (with images) ────────────────────────────────────────────────
 function CardDisplay({ label, hand }: { label: string; hand: string }) {
+  const cards = parseCards(hand);
+  const extra = remainingText(hand);
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-mono uppercase tracking-widest" style={{ color: '#9898b0' }}>{label}</span>
       <div
-        className="px-3 py-2 rounded-lg text-sm font-mono"
-        style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
+        className="px-3 py-2 rounded-lg"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
       >
-        {coloriseSuits(hand)}
+        <div className="flex items-center flex-wrap gap-1.5">
+          {cards.map((card, i) => (
+            <img
+              key={i}
+              src={card.imageUrl}
+              alt={`${card.rank}${card.suit}`}
+              style={{
+                height: '70px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                display: 'block',
+              }}
+              className="md:h-[70px] h-[55px]"
+            />
+          ))}
+          {extra && (
+            <span className="font-mono text-xs ml-1" style={{ color: '#9898b0' }}>{extra}</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -98,7 +172,42 @@ function AnswerButton({
 }
 
 // ─── Landing ──────────────────────────────────────────────────────────────────
-function Landing({ onStart }: { onStart: () => void }) {
+function Landing({ onStart }: { onStart: (name: string) => void }) {
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError('Please enter your name to play.');
+      return;
+    }
+
+    // Check for duplicate name in localStorage
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const submissions: SubmissionRecord[] = JSON.parse(raw);
+        const exists = submissions.some(
+          (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (exists) {
+          setError('This name has already been used.');
+          return;
+        }
+      }
+    } catch {
+      // corrupt storage — ignore
+    }
+
+    setError('');
+    onStart(trimmed);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSubmit();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="mb-6 flex items-center justify-center w-16 h-16 rounded-full" style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}>
@@ -106,7 +215,7 @@ function Landing({ onStart }: { onStart: () => void }) {
       </div>
 
       <h1 className="font-display text-4xl md:text-5xl font-bold mb-3" style={{ color: '#e8e8f0' }}>
-        Hold'em IQ Test
+        MBAT Poker
       </h1>
       <p className="font-mono text-sm mb-10" style={{ color: '#9898b0' }}>
         10 hands. Every second counts.
@@ -132,14 +241,41 @@ function Landing({ onStart }: { onStart: () => void }) {
         </ul>
       </div>
 
-      <button
-        onClick={onStart}
-        className="flex items-center gap-2 px-8 py-3 rounded-full font-mono text-sm uppercase tracking-widest font-medium transition-all hover:scale-105 active:scale-95"
-        style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#4ade80' }}
-      >
-        Deal Me In
-        <ChevronRight className="w-4 h-4" />
-      </button>
+      {/* Name input */}
+      <div className="w-full max-w-md flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="font-mono text-xs uppercase tracking-widest text-left" style={{ color: '#686880' }}>
+            Your Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setError(''); }}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter your name…"
+            maxLength={40}
+            className="w-full px-4 py-3 rounded-lg font-mono text-sm outline-none"
+            style={{
+              background: '#12121a',
+              border: error ? '1px solid #ef4444' : '1px solid #2a2a3a',
+              color: '#e8e8f0',
+              caretColor: '#4ade80',
+            }}
+          />
+          {error && (
+            <p className="font-mono text-xs" style={{ color: '#ef4444' }}>{error}</p>
+          )}
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          className="flex items-center justify-center gap-2 px-8 py-3 rounded-full font-mono text-sm uppercase tracking-widest font-medium transition-all hover:scale-105 active:scale-95"
+          style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#4ade80' }}
+        >
+          Deal Me In
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -156,11 +292,13 @@ function QuestionView({
   question,
   index,
   total,
+  playerName,
   onAnswer,
 }: {
   question: PokerQuestion;
   index: number;
   total: number;
+  playerName: string;
   onAnswer: (selectedIndex: number, correct: boolean, timeMs: number) => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
@@ -216,9 +354,16 @@ function QuestionView({
       {/* Top bar */}
       <div className="w-full max-w-2xl mx-auto mb-6">
         <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-xs uppercase tracking-widest" style={{ color: '#686880' }}>
-            Hand {index + 1} / {total}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: '#686880' }}>
+              Hand {index + 1} / {total}
+            </span>
+            {playerName && (
+              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>
+                · {playerName}
+              </span>
+            )}
+          </div>
           <TimerDisplay ms={elapsed} />
         </div>
         {/* Progress bar */}
@@ -244,7 +389,7 @@ function QuestionView({
             {question.title}
           </h2>
 
-          {/* Scenario box */}
+          {/* Scenario box — keep as text */}
           <div
             className="rounded-xl p-4 mb-4 text-sm font-mono leading-relaxed"
             style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
@@ -252,7 +397,7 @@ function QuestionView({
             {coloriseSuits(question.scenario)}
           </div>
 
-          {/* Player hands */}
+          {/* Player hands — card images */}
           {question.players && (
             <div className="flex flex-wrap gap-3 mb-4">
               {Object.entries(question.players).map(([key, hand]) => (
@@ -283,10 +428,12 @@ function QuestionView({
 function Results({
   records,
   questions,
+  playerName,
   onRestart,
 }: {
   records: QuestionRecord[];
   questions: PokerQuestion[];
+  playerName: string;
   onRestart: () => void;
 }) {
   const score = records.filter((r) => r.correct).length;
@@ -294,6 +441,34 @@ function Results({
   const avgMs = totalMs / records.length;
   const accuracy = Math.round((score / records.length) * 100);
   const speed = getSpeedRating(avgMs);
+
+  // Save to localStorage on mount
+  useEffect(() => {
+    const submission: SubmissionRecord = {
+      name: playerName,
+      score,
+      total: records.length,
+      totalMs,
+      avgMs,
+      accuracy,
+      completedAt: new Date().toISOString(),
+      answers: records.map((r) => ({
+        questionId: r.questionId,
+        correct: r.correct,
+        timeMs: r.timeMs,
+      })),
+    };
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const existing: SubmissionRecord[] = raw ? JSON.parse(raw) : [];
+      existing.push(submission);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    } catch {
+      // ignore storage errors
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen px-4 py-10">
@@ -309,11 +484,16 @@ function Results({
           <h1 className="font-display text-4xl font-bold mb-1" style={{ color: '#e8e8f0' }}>
             {score}/{records.length}
           </h1>
-          <p className="font-mono text-sm mb-2" style={{ color: speed.color }}>
+          <p className="font-mono text-sm mb-1" style={{ color: speed.color }}>
             {speed.label}
           </p>
+          {playerName && (
+            <p className="font-mono text-sm mb-1" style={{ color: '#9898b0' }}>
+              {playerName}
+            </p>
+          )}
           <p className="font-mono text-xs" style={{ color: '#686880' }}>
-            Hold'em IQ Test Complete
+            MBAT Poker Complete
           </p>
         </div>
 
@@ -420,8 +600,10 @@ export default function Poker() {
   const [gameState, setGameState] = useState<GameState>('landing');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [records, setRecords] = useState<QuestionRecord[]>([]);
+  const [playerName, setPlayerName] = useState('');
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback((name: string) => {
+    setPlayerName(name);
     setRecords([]);
     setCurrentIndex(0);
     setGameState('question');
@@ -449,6 +631,7 @@ export default function Poker() {
 
   const handleRestart = useCallback(() => {
     setGameState('landing');
+    setPlayerName('');
   }, []);
 
   return (
@@ -482,6 +665,7 @@ export default function Poker() {
           question={pokerQuestions[currentIndex]}
           index={currentIndex}
           total={pokerQuestions.length}
+          playerName={playerName}
           onAnswer={handleAnswer}
         />
       )}
@@ -490,6 +674,7 @@ export default function Poker() {
         <Results
           records={records}
           questions={pokerQuestions}
+          playerName={playerName}
           onRestart={handleRestart}
         />
       )}
