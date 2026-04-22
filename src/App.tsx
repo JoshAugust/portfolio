@@ -8,6 +8,7 @@ const PokerPage = lazy(() => import('./pages/Poker'));
 const PokerAdminPage = lazy(() => import('./pages/PokerAdmin'));
 const FinchexPage = lazy(() => import('./pages/Finchex'));
 const MusicPage = lazy(() => import('./pages/Music'));
+const FormFlowPage = lazy(() => import('./features/formflow'));
 
 const PageFallback = ({ label }: { label: string }) => (
   <div style={{
@@ -69,6 +70,14 @@ function App() {
           element={
             <Suspense fallback={<PageFallback label="Loading Music…" />}>
               <MusicPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/formflow"
+          element={
+            <Suspense fallback={<PageFallback label="Loading FormFlow…" />}>
+              <FormFlowPage />
             </Suspense>
           }
         />
