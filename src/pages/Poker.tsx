@@ -57,11 +57,6 @@ function parseBoardCards(scenario: string): ParsedCard[] {
   return parseCards(boardMatch[1]);
 }
 
-// Strip card tokens and return the remaining text (e.g. "(Fours full of Eights)")
-function remainingText(text: string): string {
-  return text.replace(/[AKQJT2-9][♠♥♦♣]/g, '').trim();
-}
-
 // ─── Player colour helpers ─────────────────────────────────────────────────────
 function getPlayerColor(key: string): string {
   const k = key.toLowerCase().replace('_', '');
@@ -136,41 +131,34 @@ function TimerDisplay({ ms }: { ms: number }) {
 // ─── Card display (with images) ────────────────────────────────────────────────
 function CardDisplay({ label, hand, playerKey }: { label: string; hand: string; playerKey?: string }) {
   const cards = parseCards(hand);
-  const extra = remainingText(hand);
   const color = playerKey ? getPlayerColor(playerKey) : '#9898b0';
 
   return (
-    <div className="flex flex-col gap-1 flex-1 min-w-0">
+    <div
+      className="flex flex-col gap-2 flex-1 min-w-0 rounded-lg p-3"
+      style={{ background: 'rgba(255,255,255,0.02)' }}
+    >
       <span
         className="text-xs font-mono uppercase tracking-widest"
         style={{ color }}
       >
         {label}
       </span>
-      <div
-        className="px-3 py-2 rounded-lg inline-flex"
-        style={{ background: '#1a472a', border: `1px solid ${color}40` }}
-      >
-        <div className="flex items-center flex-wrap gap-1">
-          {cards.map((card, i) => (
-            <img
-              key={i}
-              src={card.imageUrl}
-              alt={`${card.rank}${card.suit}`}
-              style={{
-                height: '60px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255,255,255,0.15)',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                display: 'block',
-              }}
-              className="md:h-[60px] h-[50px]"
-            />
-          ))}
-          {extra && (
-            <span className="font-mono text-xs ml-1" style={{ color: '#9898b0' }}>{extra}</span>
-          )}
-        </div>
+      <div className="flex items-center flex-wrap gap-2">
+        {cards.map((card, i) => (
+          <img
+            key={i}
+            src={card.imageUrl}
+            alt={`${card.rank}${card.suit}`}
+            className="h-[80px] sm:h-[100px]"
+            style={{
+              borderRadius: '4px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              display: 'block',
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -180,31 +168,25 @@ function CardDisplay({ label, hand, playerKey }: { label: string; hand: string; 
 function BoardDisplay({ cards }: { cards: ParsedCard[] }) {
   if (cards.length === 0) return null;
   return (
-    <div className="flex flex-col gap-1 mb-3">
-      <span className="text-xs font-mono uppercase tracking-widest" style={{ color: '#4ade80' }}>
+    <div className="flex flex-col gap-2 mb-5">
+      <span className="text-xs font-mono uppercase tracking-widest" style={{ color: '#9898b0' }}>
         Board
       </span>
-      <div
-        className="px-3 py-2 rounded-lg inline-flex"
-        style={{ background: '#0d2e1a', border: '1px solid #2d6a4f' }}
-      >
-        <div className="flex items-center flex-wrap gap-1">
-          {cards.map((card, i) => (
-            <img
-              key={i}
-              src={card.imageUrl}
-              alt={`${card.rank}${card.suit}`}
-              style={{
-                height: '60px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255,255,255,0.15)',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                display: 'block',
-              }}
-              className="md:h-[60px] h-[50px]"
-            />
-          ))}
-        </div>
+      <div className="flex items-center flex-wrap gap-2">
+        {cards.map((card, i) => (
+          <img
+            key={i}
+            src={card.imageUrl}
+            alt={`${card.rank}${card.suit}`}
+            className="h-[80px] sm:h-[100px]"
+            style={{
+              borderRadius: '4px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              display: 'block',
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -523,13 +505,15 @@ function QuestionView({
           {/* Board cards (if any extracted from scenario) */}
           <BoardDisplay cards={boardCards} />
 
-          {/* Scenario box */}
-          <div
-            className="rounded-xl px-4 py-3 mb-4 text-sm font-mono leading-relaxed"
-            style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
-          >
-            {coloriseSuits(question.scenario)}
-          </div>
+          {/* Scenario box — only for right_play questions; which_hand_wins is told by the cards */}
+          {question.type === 'right_play' && (
+            <div
+              className="rounded-xl px-4 py-3 mb-4 text-sm font-mono leading-relaxed"
+              style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
+            >
+              {coloriseSuits(question.scenario)}
+            </div>
+          )}
 
           {/* Player hands — side by side on sm+ */}
           {question.players && (

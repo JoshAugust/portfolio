@@ -26,8 +26,8 @@ export const practiceQuestions: PokerQuestion[] = [
     title: 'Practice — Pair vs. Two Pair',
     scenario: 'The board shows: 3♠ 7♦ T♣ K♥ 2♦',
     players: {
-      player_a: 'K♠ 9♣ (Pair of Kings)',
-      player_b: 'T♠ 7♣ (Two Pair — Tens and Sevens)',
+      player_a: 'K♠ 9♣',
+      player_b: 'T♠ 7♣',
     },
     options: [
       { text: 'Player A wins — Kings are the highest pair', correct: false },
@@ -45,8 +45,8 @@ export const practiceQuestions: PokerQuestion[] = [
     title: 'Practice — Flush vs. Straight',
     scenario: 'The board shows: 4♥ 8♥ J♥ 3♠ 6♦',
     players: {
-      player_a: 'A♥ 2♥ (Heart Flush)',
-      player_b: '5♠ 7♣ (Straight: 4-5-6-7-8)',
+      player_a: 'A♥ 2♥',
+      player_b: '5♠ 7♣',
     },
     options: [
       { text: 'Player B wins — straights are very strong', correct: false },
@@ -67,8 +67,8 @@ export const pokerQuestions: PokerQuestion[] = [
     title: 'Full House vs. Full House',
     scenario: 'The board shows: 8♠ 8♦ 4♣ 4♥ 2♠',
     players: {
-      player_a: 'A♣ 4♦ (Fours full of Eights)',
-      player_b: 'K♠ 8♥ (Eights full of Fours)',
+      player_a: 'A♣ 4♦',
+      player_b: 'K♠ 8♥',
     },
     options: [
       { text: 'Player A wins — three Fours with Aces kicker', correct: false },
@@ -124,8 +124,8 @@ export const pokerQuestions: PokerQuestion[] = [
     title: 'Flush Over Flush',
     scenario: 'The board shows: 2♥ 7♥ 9♥ J♣ K♥. Player A holds A♠ 3♥. Player B holds Q♥ T♥.',
     players: {
-      player_a: 'A♠ 3♥ (one heart)',
-      player_b: 'Q♥ T♥ (two hearts)',
+      player_a: 'A♠ 3♥',
+      player_b: 'Q♥ T♥',
     },
     options: [
       { text: 'Player B wins — they have two hearts vs one', correct: false },
