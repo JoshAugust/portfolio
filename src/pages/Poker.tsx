@@ -35,6 +35,10 @@ interface SubmissionRecord {
   avgMs: number;
   accuracy: number;
   completedAt: string;
+  startedAt?: string;
+  status: 'in_progress' | 'completed';
+  questionsAnswered: number;
+  currentSection?: 'practice' | 'section1' | 'section2';
   answers: { questionId: number; correct: boolean; timeMs: number }[];
   section2: { questionId: number; action: string; reasoning: string }[];
 }
@@ -716,16 +720,19 @@ function Results({
   const accuracy = section1Records.length > 0 ? Math.round((score / section1Records.length) * 100) : 0;
   const speed = getSpeedRating(avgMs);
 
-  // Save to localStorage on mount
+  // Mark as completed in localStorage on mount
   useEffect(() => {
-    const submission: SubmissionRecord = {
-      name: playerName,
+    updateLiveSubmission(playerName, (rec) => ({
+      ...rec,
       score,
       total: section1Records.length,
       totalMs,
       avgMs,
       accuracy,
       completedAt: new Date().toISOString(),
+      status: 'completed' as const,
+      questionsAnswered: section1Records.length + section2Records.length,
+      currentSection: undefined,
       answers: section1Records.map((r) => ({
         questionId: r.questionId,
         correct: r.correct,
@@ -736,16 +743,7 @@ function Results({
         action: r.action,
         reasoning: r.reasoning,
       })),
-    };
-
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const existing: SubmissionRecord[] = raw ? JSON.parse(raw) : [];
-      existing.push(submission);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-    } catch {
-      // ignore storage errors
-    }
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -925,6 +923,23 @@ function Results({
   );
 }
 
+// ─── Live storage helper ───────────────────────────────────────────────────────
+function updateLiveSubmission(name: string, updater: (record: SubmissionRecord) => SubmissionRecord) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const all: SubmissionRecord[] = raw ? JSON.parse(raw) : [];
+    const idx = all.findIndex(
+      (s) => s.name.toLowerCase() === name.toLowerCase() && s.status === 'in_progress'
+    );
+    if (idx !== -1) {
+      all[idx] = updater(all[idx]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
 // ─── Main Poker page ───────────────────────────────────────────────────────────
 type GameState = 'landing' | 'practice' | 'ready' | 'section1' | 'section_transition' | 'section2' | 'results';
 
@@ -944,6 +959,31 @@ export default function Poker() {
     setPracticeIndex(0);
     setSection1Index(0);
     setSection2Index(0);
+
+    // Write initial record to localStorage immediately
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const existing: SubmissionRecord[] = raw ? JSON.parse(raw) : [];
+      existing.push({
+        name,
+        score: 0,
+        total: section1Questions.length,
+        totalMs: 0,
+        avgMs: 0,
+        accuracy: 0,
+        startedAt: new Date().toISOString(),
+        completedAt: '',
+        status: 'in_progress',
+        questionsAnswered: 0,
+        currentSection: 'practice',
+        answers: [],
+        section2: [],
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    } catch {
+      // ignore storage errors
+    }
+
     setGameState('practice');
   }, []);
 
@@ -975,13 +1015,25 @@ export default function Poker() {
       const updated = [...section1Records, newRecord];
       setSection1Records(updated);
 
+      // Live update localStorage
+      updateLiveSubmission(playerName, (rec) => ({
+        ...rec,
+        answers: updated.map((r) => ({ questionId: r.questionId, correct: r.correct, timeMs: r.timeMs })),
+        score: updated.filter((r) => r.correct).length,
+        totalMs: updated.reduce((s, r) => s + r.timeMs, 0),
+        avgMs: updated.length > 0 ? updated.reduce((s, r) => s + r.timeMs, 0) / updated.length : 0,
+        accuracy: updated.length > 0 ? Math.round((updated.filter((r) => r.correct).length / updated.length) * 100) : 0,
+        questionsAnswered: updated.length,
+        currentSection: 'section1',
+      }));
+
       if (section1Index + 1 >= section1Questions.length) {
         setGameState('section_transition');
       } else {
         setSection1Index((i) => i + 1);
       }
     },
-    [section1Index, section1Records]
+    [section1Index, section1Records, playerName]
   );
 
   const handleTransitionContinue = useCallback(() => {
@@ -1000,13 +1052,21 @@ export default function Poker() {
       const updated = [...section2Records, newRecord];
       setSection2Records(updated);
 
+      // Live update localStorage
+      updateLiveSubmission(playerName, (rec) => ({
+        ...rec,
+        section2: updated.map((r) => ({ questionId: r.questionId, action: r.action, reasoning: r.reasoning })),
+        questionsAnswered: section1Records.length + updated.length,
+        currentSection: 'section2',
+      }));
+
       if (section2Index + 1 >= section2Questions.length) {
         setGameState('results');
       } else {
         setSection2Index((i) => i + 1);
       }
     },
-    [section2Index, section2Records]
+    [section2Index, section2Records, playerName, section1Records.length]
   );
 
   const handleRestart = useCallback(() => {

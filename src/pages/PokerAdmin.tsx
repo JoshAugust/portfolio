@@ -12,6 +12,10 @@ interface SubmissionRecord {
   avgMs: number;
   accuracy: number;
   completedAt: string;
+  startedAt?: string;
+  status?: 'in_progress' | 'completed'; // undefined = legacy completed
+  questionsAnswered?: number;
+  currentSection?: 'practice' | 'section1' | 'section2';
   answers: { questionId: number; correct: boolean; timeMs: number }[];
   // Section 2 responses (optional for backward compat with old submissions)
   section2?: { questionId: number; action: string; reasoning: string }[];
@@ -48,6 +52,11 @@ function formatMs(ms: number): string {
 // ─── Sort submissions ──────────────────────────────────────────────────────────
 function sortSubmissions(submissions: SubmissionRecord[]): SubmissionRecord[] {
   return [...submissions].sort((a, b) => {
+    const aLive = a.status === 'in_progress' ? 1 : 0;
+    const bLive = b.status === 'in_progress' ? 1 : 0;
+    // In-progress sessions float to top
+    if (aLive !== bLive) return bLive - aLive;
+    // Then sort completed by score, then speed
     if (b.score !== a.score) return b.score - a.score;
     return a.totalMs - b.totalMs;
   });
@@ -247,6 +256,9 @@ function AdminDashboard() {
 
   useEffect(() => {
     loadSubmissions();
+    // Auto-refresh every 5 seconds to catch live updates
+    const interval = setInterval(loadSubmissions, 5000);
+    return () => clearInterval(interval);
   }, [loadSubmissions]);
 
   const handleClearAll = useCallback(() => {
@@ -339,9 +351,12 @@ function AdminDashboard() {
         {submissions.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-8">
             {(() => {
-              const avgScore = submissions.reduce((s, r) => s + r.score, 0) / submissions.length;
-              const avgTime = submissions.reduce((s, r) => s + r.avgMs, 0) / submissions.length;
-              const topScore = Math.max(...submissions.map((s) => s.score));
+              const completed = submissions.filter((s) => s.status !== 'in_progress');
+              const live = submissions.filter((s) => s.status === 'in_progress');
+              const avgScore = completed.length > 0 ? completed.reduce((s, r) => s + r.score, 0) / completed.length : 0;
+              const avgTime = completed.length > 0 ? completed.reduce((s, r) => s + r.avgMs, 0) / completed.length : 0;
+              const topScore = completed.length > 0 ? Math.max(...completed.map((s) => s.score)) : 0;
+              void live; // used for count below
               return [
                 { icon: Trophy, label: 'Avg Score', value: `${avgScore.toFixed(1)}/10` },
                 { icon: Clock, label: 'Avg Speed', value: formatMs(avgTime) },
@@ -381,7 +396,7 @@ function AdminDashboard() {
               <table className="w-full font-mono text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#12121a', borderBottom: '1px solid #2a2a3a' }}>
-                    {['', '#', 'Name', 'Score', 'Accuracy', 'Total Time', 'Avg/Hand', 'Speed Rating', 'Date'].map((h) => (
+                    {['', '#', 'Name', 'Status', 'Score', 'Accuracy', 'Total Time', 'Avg/Hand', 'Speed Rating', 'Date'].map((h) => (
                       <th
                         key={h || 'expand'}
                         className="px-4 py-3 text-left text-xs uppercase tracking-widest"
@@ -422,13 +437,38 @@ function AdminDashboard() {
                             {s.name}
                           </td>
                           <td className="px-4 py-3">
+                            {s.status === 'in_progress' ? (
+                              <span
+                                className="px-2 py-0.5 rounded font-mono text-xs font-medium"
+                                style={{
+                                  background: 'rgba(250,204,21,0.15)',
+                                  color: '#facc15',
+                                  border: '1px solid rgba(250,204,21,0.3)',
+                                }}
+                              >
+                                LIVE · {s.currentSection === 'practice' ? 'Practice' : s.currentSection === 'section2' ? `S2 Q${s.section2?.length ?? 0}/3` : `Q${s.questionsAnswered ?? 0}/10`}
+                              </span>
+                            ) : (
+                              <span
+                                className="px-2 py-0.5 rounded font-mono text-xs font-medium"
+                                style={{
+                                  background: 'rgba(74,222,128,0.15)',
+                                  color: '#4ade80',
+                                  border: '1px solid rgba(74,222,128,0.3)',
+                                }}
+                              >
+                                Done
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
                             <span
                               style={{
-                                color: s.score >= 8 ? '#4ade80' : s.score >= 5 ? '#facc15' : '#ef4444',
+                                color: s.status === 'in_progress' ? '#686880' : s.score >= 8 ? '#4ade80' : s.score >= 5 ? '#facc15' : '#ef4444',
                                 fontWeight: 600,
                               }}
                             >
-                              {s.score}/{s.total}
+                              {s.status === 'in_progress' ? `${s.score}/?` : `${s.score}/${s.total}`}
                             </span>
                           </td>
                           <td className="px-4 py-3" style={{ color: '#9898b0' }}>
@@ -444,12 +484,14 @@ function AdminDashboard() {
                             <span style={{ color: speed.color }}>{speed.label}</span>
                           </td>
                           <td className="px-4 py-3 text-xs" style={{ color: '#686880', whiteSpace: 'nowrap' }}>
-                            {formatDate(s.completedAt)}
+                            {s.status === 'in_progress'
+                              ? `Started ${formatDate(s.startedAt || '')}`
+                              : formatDate(s.completedAt)}
                           </td>
                         </tr>
                         {isExpanded && (
                           <tr key={`${s.name}-${s.completedAt}-detail`}>
-                            <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid #2a2a3a' }}>
+                            <td colSpan={10} style={{ padding: 0, borderBottom: '1px solid #2a2a3a' }}>
                               <SubmissionDetail submission={s} />
                             </td>
                           </tr>
