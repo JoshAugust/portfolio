@@ -12,6 +12,8 @@ interface SubmissionRecord {
   accuracy: number;
   completedAt: string;
   answers: { questionId: number; correct: boolean; timeMs: number }[];
+  // Section 2 responses (optional for backward compat with old submissions)
+  section2?: { questionId: number; action: string; reasoning: string }[];
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────

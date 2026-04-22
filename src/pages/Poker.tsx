@@ -1,12 +1,32 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Trophy, Clock, Target, ChevronRight, RotateCcw, Spade } from 'lucide-react';
-import { pokerQuestions, practiceQuestions, type PokerQuestion, type PokerOption } from '../data/pokerQuestions';
+import { ArrowLeft, Trophy, Clock, Target, ChevronRight, RotateCcw, Spade, Settings } from 'lucide-react';
+import {
+  section1Questions,
+  section2Questions,
+  practiceQuestions,
+  type WhichHandWinsQuestion,
+  type RightPlayQuestion,
+  type CorrectAnswer,
+} from '../data/pokerQuestions';
 
 // ─── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mbat-poker-submissions';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+interface Section1Record {
+  questionId: number;
+  answer: CorrectAnswer;
+  correct: boolean;
+  timeMs: number;
+}
+
+interface Section2Record {
+  questionId: number;
+  action: string;
+  reasoning: string;
+}
+
 interface SubmissionRecord {
   name: string;
   score: number;
@@ -16,22 +36,34 @@ interface SubmissionRecord {
   accuracy: number;
   completedAt: string;
   answers: { questionId: number; correct: boolean; timeMs: number }[];
+  section2: { questionId: number; action: string; reasoning: string }[];
 }
 
-// ─── Card parser ───────────────────────────────────────────────────────────────
-const RANK_MAP: Record<string, string> = {
-  A: 'A', K: 'K', Q: 'Q', J: 'J', T: '0',
-  '2': '2', '3': '3', '4': '4', '5': '5',
-  '6': '6', '7': '7', '8': '8', '9': '9',
-};
-const SUIT_MAP: Record<string, string> = {
-  '♠': 'S', '♥': 'H', '♦': 'D', '♣': 'C',
+// ─── Answer label map ──────────────────────────────────────────────────────────
+const ANSWER_LABELS: Record<CorrectAnswer, string> = {
+  player_a: 'Player A Wins',
+  player_b: 'Player B Wins',
+  split: 'Split Pot',
 };
 
+const ANSWER_COLORS: Record<CorrectAnswer, string> = {
+  player_a: '#60a5fa',
+  player_b: '#f472b6',
+  split: '#facc15',
+};
+
+// ─── Action buttons config ────────────────────────────────────────────────────
+const ACTION_BUTTONS = [
+  { key: 'Fold', color: '#9898b0', hoverBg: 'rgba(152,152,176,0.15)' },
+  { key: 'Call', color: '#60a5fa', hoverBg: 'rgba(96,165,250,0.15)' },
+  { key: 'Raise Small', color: '#facc15', hoverBg: 'rgba(250,204,21,0.15)' },
+  { key: 'Raise Big / All-In', color: '#f87171', hoverBg: 'rgba(248,113,113,0.15)' },
+];
+
+// ─── Card parser (no imageUrl — CSS-rendered cards) ───────────────────────────
 interface ParsedCard {
-  rank: string;
-  suit: string;
-  imageUrl: string;
+  rank: string; // raw: A, K, Q, J, T, 2-9
+  suit: string; // ♠ ♥ ♦ ♣
 }
 
 function parseCards(text: string): ParsedCard[] {
@@ -39,34 +71,15 @@ function parseCards(text: string): ParsedCard[] {
   const results: ParsedCard[] = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
-    const rank = RANK_MAP[match[1]] ?? match[1];
-    const suit = SUIT_MAP[match[2]] ?? match[2];
-    results.push({
-      rank: match[1],
-      suit: match[2],
-      imageUrl: `https://deckofcardsapi.com/static/img/${rank}${suit}.png`,
-    });
+    results.push({ rank: match[1], suit: match[2] });
   }
   return results;
 }
 
-// Extract board cards from scenario — only looks for "board shows:" / "board runs out:" patterns
 function parseBoardCards(scenario: string): ParsedCard[] {
   const boardMatch = scenario.match(/board (?:shows|runs out):\s*([^.]+)/i);
   if (!boardMatch) return [];
   return parseCards(boardMatch[1]);
-}
-
-// ─── Player colour helpers ─────────────────────────────────────────────────────
-function getPlayerColor(key: string): string {
-  const k = key.toLowerCase().replace('_', '');
-  if (k === 'playera' || k === 'you') return '#60a5fa';
-  if (k === 'playerb' || k === 'opponent') return '#f472b6';
-  return '#9898b0';
-}
-
-function getPlayerLabel(key: string): string {
-  return key.replace(/_/g, ' ').toUpperCase();
 }
 
 // ─── Suit coloriser ────────────────────────────────────────────────────────────
@@ -83,32 +96,7 @@ function coloriseSuits(text: string): React.ReactNode[] {
   });
 }
 
-// ─── Answer text coloriser (player names + suits) ──────────────────────────────
-function coloriseAnswerText(text: string): React.ReactNode {
-  const pattern = /(Player A|Player B|Opponent|You(?= wins| win))/g;
-  const parts = text.split(pattern);
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part === 'Player A') {
-          return <strong key={i} style={{ color: '#60a5fa' }}>{part}</strong>;
-        }
-        if (part === 'Player B') {
-          return <strong key={i} style={{ color: '#f472b6' }}>{part}</strong>;
-        }
-        if (part === 'You') {
-          return <strong key={i} style={{ color: '#60a5fa' }}>{part}</strong>;
-        }
-        if (part === 'Opponent') {
-          return <strong key={i} style={{ color: '#f472b6' }}>{part}</strong>;
-        }
-        return <span key={i}>{coloriseSuits(part)}</span>;
-      })}
-    </>
-  );
-}
-
-// ─── Speed rating helper ───────────────────────────────────────────────────────
+// ─── Speed rating ──────────────────────────────────────────────────────────────
 function getSpeedRating(avgMs: number): { label: string; color: string } {
   if (avgMs < 5000) return { label: 'Shark', color: '#4ade80' };
   if (avgMs < 10000) return { label: 'Reg', color: '#a3e635' };
@@ -128,43 +116,63 @@ function TimerDisplay({ ms }: { ms: number }) {
   );
 }
 
-// ─── Card display (with images) ────────────────────────────────────────────────
+// ─── PlayingCard — CSS-rendered card ──────────────────────────────────────────
+function PlayingCard({ rank, suit }: { rank: string; suit: string }) {
+  const displayRank = rank === 'T' ? '10' : rank;
+  const isRed = suit === '♥' || suit === '♦';
+  const color = isRed ? '#dc2626' : '#1a1a1a';
+
+  return (
+    <div
+      className="w-[55px] h-[78px] sm:w-[70px] sm:h-[100px] flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
+      style={{
+        background: '#ffffff',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+      }}
+    >
+      <span
+        className="text-[20px] sm:text-[24px] font-bold leading-none select-none"
+        style={{ fontFamily: 'sans-serif', color }}
+      >
+        {displayRank}
+      </span>
+      <span
+        className="text-[22px] sm:text-[28px] leading-none select-none"
+        style={{ color }}
+      >
+        {suit}
+      </span>
+    </div>
+  );
+}
+
+// ─── CardDisplay — player hand ─────────────────────────────────────────────────
 function CardDisplay({ label, hand, playerKey }: { label: string; hand: string; playerKey?: string }) {
   const cards = parseCards(hand);
-  const color = playerKey ? getPlayerColor(playerKey) : '#9898b0';
+  const color =
+    playerKey === 'player_a' ? '#60a5fa' :
+    playerKey === 'player_b' ? '#f472b6' :
+    '#9898b0';
 
   return (
     <div
       className="flex flex-col gap-2 flex-1 min-w-0 rounded-lg p-3"
       style={{ background: 'rgba(255,255,255,0.02)' }}
     >
-      <span
-        className="text-xs font-mono uppercase tracking-widest"
-        style={{ color }}
-      >
+      <span className="text-xs font-mono uppercase tracking-widest" style={{ color }}>
         {label}
       </span>
       <div className="flex items-center flex-wrap gap-2">
         {cards.map((card, i) => (
-          <img
-            key={i}
-            src={card.imageUrl}
-            alt={`${card.rank}${card.suit}`}
-            className="h-[80px] sm:h-[100px]"
-            style={{
-              borderRadius: '4px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-              display: 'block',
-            }}
-          />
+          <PlayingCard key={i} rank={card.rank} suit={card.suit} />
         ))}
       </div>
     </div>
   );
 }
 
-// ─── Board card row ────────────────────────────────────────────────────────────
+// ─── BoardDisplay ──────────────────────────────────────────────────────────────
 function BoardDisplay({ cards }: { cards: ParsedCard[] }) {
   if (cards.length === 0) return null;
   return (
@@ -174,87 +182,378 @@ function BoardDisplay({ cards }: { cards: ParsedCard[] }) {
       </span>
       <div className="flex items-center flex-wrap gap-2">
         {cards.map((card, i) => (
-          <img
-            key={i}
-            src={card.imageUrl}
-            alt={`${card.rank}${card.suit}`}
-            className="h-[80px] sm:h-[100px]"
-            style={{
-              borderRadius: '4px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-              display: 'block',
-            }}
-          />
+          <PlayingCard key={i} rank={card.rank} suit={card.suit} />
         ))}
       </div>
     </div>
   );
 }
 
-// ─── Answer button ─────────────────────────────────────────────────────────────
-type AnswerState = 'idle' | 'correct' | 'wrong';
+// ─── Which Hand Wins — Question View ──────────────────────────────────────────
+const WHICH_HAND_BUTTONS: { key: CorrectAnswer; label: string; color: string }[] = [
+  { key: 'player_a', label: 'Player A Wins', color: '#60a5fa' },
+  { key: 'split', label: 'Split Pot', color: '#facc15' },
+  { key: 'player_b', label: 'Player B Wins', color: '#f472b6' },
+];
 
-const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
-
-function AnswerButton({
-  option,
+function WhichHandWinsView({
+  question,
   index,
-  state,
-  onClick,
-  disabled,
+  total,
+  playerName,
+  onAnswer,
+  isPractice,
 }: {
-  option: PokerOption;
+  question: WhichHandWinsQuestion;
   index: number;
-  state: AnswerState;
-  onClick: () => void;
-  disabled: boolean;
+  total: number;
+  playerName: string;
+  onAnswer: (answer: CorrectAnswer, correct: boolean, timeMs: number) => void;
+  isPractice?: boolean;
 }) {
-  const baseStyle: React.CSSProperties = {
-    background: state === 'correct'
-      ? 'rgba(34,197,94,0.15)'
-      : state === 'wrong'
-      ? 'rgba(239,68,68,0.15)'
-      : 'rgba(255,255,255,0.04)',
-    border: state === 'correct'
-      ? '1px solid #22c55e'
-      : state === 'wrong'
-      ? '1px solid #ef4444'
-      : '1px solid rgba(255,255,255,0.1)',
-    borderLeft: state === 'correct'
-      ? '3px solid #22c55e'
-      : state === 'wrong'
-      ? '3px solid #ef4444'
-      : '3px solid rgba(255,255,255,0.15)',
-    color: state === 'correct'
-      ? '#22c55e'
-      : state === 'wrong'
-      ? '#ef4444'
-      : '#e8e8f0',
-    transition: 'all 0.2s ease',
-  };
+  const [elapsed, setElapsed] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<CorrectAnswer | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const startRef = useRef(Date.now());
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answeredRef = useRef(false);
 
-  const letterColor = state === 'correct'
-    ? '#22c55e'
-    : state === 'wrong'
-    ? '#ef4444'
-    : '#686880';
+  useEffect(() => {
+    startRef.current = Date.now();
+    setElapsed(0);
+    setSelectedAnswer(null);
+    setShowExplanation(false);
+    answeredRef.current = false;
+
+    timerRef.current = setInterval(() => {
+      setElapsed(Date.now() - startRef.current);
+    }, 100);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [question]);
+
+  const handleSelect = useCallback(
+    (answer: CorrectAnswer) => {
+      if (answeredRef.current) return;
+      answeredRef.current = true;
+      if (timerRef.current) clearInterval(timerRef.current);
+
+      const timeMs = Date.now() - startRef.current;
+      const correct = answer === question.correctAnswer;
+      setSelectedAnswer(answer);
+
+      if (isPractice) {
+        setShowExplanation(true);
+        setTimeout(() => onAnswer(answer, correct, timeMs), 3000);
+      } else {
+        setTimeout(() => onAnswer(answer, correct, timeMs), 1200);
+      }
+    },
+    [question, onAnswer, isPractice]
+  );
+
+  const boardCards = parseBoardCards(question.scenario);
+  const progress = (index / total) * 100;
+  const progressBarColor = isPractice ? '#fbbf24' : '#4ade80';
 
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full text-left px-4 py-3 rounded-lg text-sm font-mono leading-relaxed cursor-pointer disabled:cursor-default hover:opacity-90 flex items-start gap-3 ${state === 'wrong' ? 'animate-shake' : ''}`}
-      style={baseStyle}
-    >
-      <span
-        className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-xs font-bold mt-0.5"
-        style={{ background: 'rgba(255,255,255,0.06)', color: letterColor, fontFamily: 'monospace' }}
+    <div className="min-h-screen flex flex-col px-4 py-6 md:py-10">
+      {/* Practice banner */}
+      {isPractice && (
+        <div
+          className="w-full max-w-2xl mx-auto mb-4 rounded-lg px-4 py-2 flex items-center justify-center gap-2"
+          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)' }}
+        >
+          <span className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
+            ★ PRACTICE — This doesn't count
+          </span>
+        </div>
+      )}
+
+      {/* Top bar */}
+      <div className="w-full max-w-2xl mx-auto mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <span
+              className="font-mono text-xs uppercase tracking-widest"
+              style={{ color: isPractice ? '#fbbf24' : '#686880' }}
+            >
+              {isPractice ? `Practice ${index + 1} / ${total}` : `Hand ${index + 1} / ${total}`}
+            </span>
+            {playerName && (
+              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>
+                · {playerName}
+              </span>
+            )}
+          </div>
+          <TimerDisplay ms={elapsed} />
+        </div>
+        <div className="w-full h-1 rounded-full" style={{ background: '#2a2a3a' }}>
+          <div
+            className="h-1 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%`, background: progressBarColor }}
+          />
+        </div>
+      </div>
+
+      {/* Question card */}
+      <div className="w-full max-w-2xl mx-auto flex-1">
+        <div
+          className="rounded-2xl p-5 md:p-7 mb-5"
+          style={{
+            background: '#12121a',
+            border: isPractice ? '1px solid rgba(251,191,36,0.25)' : '1px solid #2a2a3a',
+          }}
+        >
+          <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
+            🃏 Which hand wins?
+          </p>
+
+          <BoardDisplay cards={boardCards} />
+
+          {/* Player hands */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-2">
+            <CardDisplay label="Player A" hand={question.players.player_a} playerKey="player_a" />
+            <CardDisplay label="Player B" hand={question.players.player_b} playerKey="player_b" />
+          </div>
+        </div>
+
+        {/* 3-button answer row */}
+        <div className="flex gap-2 sm:gap-3 mb-4">
+          {WHICH_HAND_BUTTONS.map(({ key, label, color }) => {
+            let btnState: 'idle' | 'correct' | 'wrong' = 'idle';
+            if (selectedAnswer !== null) {
+              if (key === question.correctAnswer) btnState = 'correct';
+              else if (key === selectedAnswer) btnState = 'wrong';
+            }
+
+            return (
+              <button
+                key={key}
+                onClick={() => handleSelect(key)}
+                disabled={selectedAnswer !== null}
+                className="flex-1 py-3 px-1 sm:px-4 rounded-lg font-mono text-xs sm:text-sm font-medium uppercase tracking-widest transition-all hover:opacity-90 disabled:cursor-default text-center"
+                style={{
+                  border: `1px solid ${
+                    btnState === 'correct' ? '#22c55e' :
+                    btnState === 'wrong' ? '#ef4444' :
+                    color
+                  }`,
+                  color:
+                    btnState === 'correct' ? '#22c55e' :
+                    btnState === 'wrong' ? '#ef4444' :
+                    color,
+                  background:
+                    btnState === 'correct' ? 'rgba(34,197,94,0.15)' :
+                    btnState === 'wrong' ? 'rgba(239,68,68,0.15)' :
+                    'rgba(255,255,255,0.02)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Practice explanation */}
+        {isPractice && showExplanation && (
+          <div
+            className="mt-4 rounded-xl px-4 py-4"
+            style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}
+          >
+            <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#fbbf24' }}>
+              Explanation
+            </p>
+            <p className="font-mono text-sm leading-relaxed" style={{ color: '#e8e8f0' }}>
+              {question.explanation}
+            </p>
+            <p className="font-mono text-xs mt-2" style={{ color: '#686880' }}>
+              Moving on in a moment…
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Right Play — Question View (Section 2) ───────────────────────────────────
+function RightPlayView({
+  question,
+  index,
+  total,
+  playerName,
+  onAnswer,
+}: {
+  question: RightPlayQuestion;
+  index: number;
+  total: number;
+  playerName: string;
+  onAnswer: (action: string, reasoning: string) => void;
+}) {
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
+  const [reasoning, setReasoning] = useState('');
+
+  const handleSubmit = useCallback(() => {
+    if (!selectedAction || !reasoning.trim()) return;
+    const action = selectedAction;
+    const text = reasoning.trim();
+    setSelectedAction(null);
+    setReasoning('');
+    onAnswer(action, text);
+  }, [selectedAction, reasoning, onAnswer]);
+
+  const progress = (index / total) * 100;
+
+  return (
+    <div className="min-h-screen flex flex-col px-4 py-6 md:py-10">
+      {/* Section 2 banner */}
+      <div
+        className="w-full max-w-2xl mx-auto mb-4 rounded-lg px-4 py-2 flex items-center justify-center gap-2"
+        style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)' }}
       >
-        {OPTION_LETTERS[index] ?? String(index + 1)}
-      </span>
-      <span>{coloriseAnswerText(option.text)}</span>
-    </button>
+        <span className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color: '#a78bfa' }}>
+          ♟ Section 2 — What's Your Play?
+        </span>
+      </div>
+
+      {/* Top bar */}
+      <div className="w-full max-w-2xl mx-auto mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: '#686880' }}>
+              Strategy {index + 1} / {total}
+            </span>
+            {playerName && (
+              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>
+                · {playerName}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="w-full h-1 rounded-full" style={{ background: '#2a2a3a' }}>
+          <div
+            className="h-1 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%`, background: '#a78bfa' }}
+          />
+        </div>
+      </div>
+
+      {/* Question card */}
+      <div className="w-full max-w-2xl mx-auto flex-1">
+        <div
+          className="rounded-2xl p-5 md:p-7 mb-5"
+          style={{ background: '#12121a', border: '1px solid #2a2a3a' }}
+        >
+          <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
+            ♟ What's the right play?
+          </p>
+
+          <div
+            className="rounded-xl px-4 py-3 mb-4 text-sm font-mono leading-relaxed"
+            style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
+          >
+            {coloriseSuits(question.scenario)}
+          </div>
+
+          <p className="font-mono text-xs" style={{ color: '#686880' }}>
+            No right or wrong answer — pick what you'd do and explain your thinking.
+          </p>
+        </div>
+
+        {/* 4 action buttons in 2x2 grid */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {ACTION_BUTTONS.map(({ key, color }) => (
+            <button
+              key={key}
+              onClick={() => setSelectedAction(key)}
+              className="py-3 px-4 rounded-lg font-mono text-sm font-medium transition-all hover:opacity-90 text-center"
+              style={{
+                border: `1px solid ${selectedAction === key ? color : 'rgba(255,255,255,0.1)'}`,
+                color: selectedAction === key ? color : '#9898b0',
+                background: selectedAction === key
+                  ? ACTION_BUTTONS.find((b) => b.key === key)!.hoverBg
+                  : 'rgba(255,255,255,0.02)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+
+        {/* Reasoning textarea — shown after action selected */}
+        {selectedAction && (
+          <div className="flex flex-col gap-3">
+            <label className="font-mono text-xs uppercase tracking-widest" style={{ color: '#686880' }}>
+              Your Reasoning
+            </label>
+            <textarea
+              rows={4}
+              value={reasoning}
+              onChange={(e) => setReasoning(e.target.value)}
+              placeholder="What's your reasoning?"
+              className="w-full px-4 py-3 rounded-lg font-mono text-sm outline-none resize-none"
+              style={{
+                background: '#12121a',
+                border: '1px solid #2a2a3a',
+                color: '#e8e8f0',
+                caretColor: '#4ade80',
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!reasoning.trim()}
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-mono text-sm uppercase tracking-widest font-medium transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#4ade80' }}
+            >
+              Submit
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Section Transition ────────────────────────────────────────────────────────
+function SectionTransition({ score, onContinue }: { score: number; onContinue: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <div
+        className="mb-6 flex items-center justify-center w-16 h-16 rounded-full"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
+      >
+        <Trophy className="w-8 h-8" style={{ color: '#4ade80' }} />
+      </div>
+
+      <h1 className="font-display text-3xl md:text-4xl font-bold mb-3" style={{ color: '#e8e8f0' }}>
+        Section 1 Complete
+      </h1>
+      <p className="font-mono text-2xl font-bold mb-2" style={{ color: '#4ade80' }}>
+        {score}/10
+      </p>
+      <p className="font-mono text-sm mb-3" style={{ color: '#9898b0' }}>
+        Which Hand Wins? — done.
+      </p>
+      <p className="font-mono text-sm mb-10 max-w-sm" style={{ color: '#686880' }}>
+        Next: What's Your Play? — 3 strategy scenarios. No right or wrong answers.
+      </p>
+
+      <button
+        onClick={onContinue}
+        className="flex items-center justify-center gap-2 px-10 py-4 rounded-full font-mono text-sm uppercase tracking-widest font-medium transition-all hover:scale-105 active:scale-95"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#4ade80' }}
+      >
+        Continue
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 
@@ -270,7 +569,6 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
       return;
     }
 
-    // Check for duplicate name in localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -297,7 +595,23 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-      <div className="mb-6 flex items-center justify-center w-16 h-16 rounded-full" style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}>
+      {/* Admin link — subtle, top-right */}
+      <div className="fixed top-4 right-4">
+        <Link
+          to="/poker/admin"
+          className="flex items-center gap-1 font-mono text-xs transition-colors hover:opacity-80"
+          style={{ color: '#686880' }}
+          title="Admin"
+        >
+          <Settings className="w-3 h-3" />
+          <span>Admin</span>
+        </Link>
+      </div>
+
+      <div
+        className="mb-6 flex items-center justify-center w-16 h-16 rounded-full"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
+      >
         <Spade className="w-8 h-8" style={{ color: '#4ade80' }} />
       </div>
 
@@ -305,7 +619,7 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
         MBAT Poker
       </h1>
       <p className="font-mono text-sm mb-10" style={{ color: '#9898b0' }}>
-        10 hands. Every second counts.
+        10 hands + 3 strategy questions.
       </p>
 
       <div
@@ -315,10 +629,10 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
         <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>Rules</p>
         <ul className="space-y-3">
           {[
-            'Each hand is a multiple-choice question',
+            'Section 1 — 10 "which hand wins?" questions (scored)',
+            'Section 2 — 3 strategy scenarios (no right or wrong)',
             'Timer starts immediately — speed affects your rating',
             'No email required, no signup, just play',
-            'Your results + explanations appear at the end',
           ].map((rule, i) => (
             <li key={i} className="flex items-start gap-3 font-mono text-sm" style={{ color: '#9898b0' }}>
               <span style={{ color: '#4ade80', flexShrink: 0 }}>→</span>
@@ -367,210 +681,14 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
   );
 }
 
-// ─── Question ─────────────────────────────────────────────────────────────────
-interface QuestionRecord {
-  questionId: number;
-  selectedIndex: number;
-  correct: boolean;
-  timeMs: number;
-}
-
-function QuestionView({
-  question,
-  index,
-  total,
-  playerName,
-  onAnswer,
-  isPractice,
-}: {
-  question: PokerQuestion;
-  index: number;
-  total: number;
-  playerName: string;
-  onAnswer: (selectedIndex: number, correct: boolean, timeMs: number) => void;
-  isPractice?: boolean;
-}) {
-  const [elapsed, setElapsed] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [answerStates, setAnswerStates] = useState<AnswerState[]>(question.options.map(() => 'idle'));
-  const [showExplanation, setShowExplanation] = useState(false);
-  const startRef = useRef(Date.now());
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const answeredRef = useRef(false);
-
-  useEffect(() => {
-    startRef.current = Date.now();
-    setElapsed(0);
-    setSelectedIndex(null);
-    setAnswerStates(question.options.map(() => 'idle'));
-    setShowExplanation(false);
-    answeredRef.current = false;
-
-    timerRef.current = setInterval(() => {
-      setElapsed(Date.now() - startRef.current);
-    }, 100);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [question]);
-
-  const handleSelect = useCallback((idx: number) => {
-    if (answeredRef.current) return;
-    answeredRef.current = true;
-
-    if (timerRef.current) clearInterval(timerRef.current);
-    const timeMs = Date.now() - startRef.current;
-    const correct = question.options[idx].correct;
-
-    setSelectedIndex(idx);
-
-    const newStates: AnswerState[] = question.options.map((opt, i) => {
-      if (i === idx) return correct ? 'correct' : 'wrong';
-      if (opt.correct) return 'correct';
-      return 'idle';
-    });
-    setAnswerStates(newStates);
-
-    if (isPractice) {
-      // Show explanation for 3s then advance
-      setShowExplanation(true);
-      setTimeout(() => {
-        onAnswer(idx, correct, timeMs);
-      }, 3000);
-    } else {
-      // Move to next after brief pause
-      setTimeout(() => {
-        onAnswer(idx, correct, timeMs);
-      }, 1200);
-    }
-  }, [question, onAnswer, isPractice]);
-
-  const progress = ((index) / total) * 100;
-  const boardCards = parseBoardCards(question.scenario);
-  const progressBarColor = isPractice ? '#fbbf24' : '#4ade80';
-
-  return (
-    <div className="min-h-screen flex flex-col px-4 py-6 md:py-10">
-      {/* Practice banner */}
-      {isPractice && (
-        <div
-          className="w-full max-w-2xl mx-auto mb-4 rounded-lg px-4 py-2 flex items-center justify-center gap-2"
-          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)' }}
-        >
-          <span className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
-            ★ PRACTICE — This doesn't count
-          </span>
-        </div>
-      )}
-
-      {/* Top bar */}
-      <div className="w-full max-w-2xl mx-auto mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: isPractice ? '#fbbf24' : '#686880' }}>
-              {isPractice ? `Practice ${index + 1} / ${total}` : `Hand ${index + 1} / ${total}`}
-            </span>
-            {playerName && (
-              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>
-                · {playerName}
-              </span>
-            )}
-          </div>
-          <TimerDisplay ms={elapsed} />
-        </div>
-        {/* Progress bar */}
-        <div className="w-full h-1 rounded-full" style={{ background: '#2a2a3a' }}>
-          <div
-            className="h-1 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%`, background: progressBarColor }}
-          />
-        </div>
-      </div>
-
-      {/* Card */}
-      <div className="w-full max-w-2xl mx-auto flex-1">
-        <div
-          className="rounded-2xl p-5 md:p-7 mb-5"
-          style={{
-            background: '#12121a',
-            border: isPractice ? '1px solid rgba(251,191,36,0.25)' : '1px solid #2a2a3a',
-          }}
-        >
-          {/* Type badge — no title */}
-          <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
-            {question.type === 'which_hand_wins' ? '🃏 Which hand wins?' : '♟ What\'s the right play?'}
-          </p>
-
-          {/* Board cards (if any extracted from scenario) */}
-          <BoardDisplay cards={boardCards} />
-
-          {/* Scenario box — only for right_play questions; which_hand_wins is told by the cards */}
-          {question.type === 'right_play' && (
-            <div
-              className="rounded-xl px-4 py-3 mb-4 text-sm font-mono leading-relaxed"
-              style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
-            >
-              {coloriseSuits(question.scenario)}
-            </div>
-          )}
-
-          {/* Player hands — side by side on sm+ */}
-          {question.players && (
-            <div className="flex flex-col sm:flex-row gap-3 mb-2">
-              {Object.entries(question.players).map(([key, hand]) => (
-                <CardDisplay
-                  key={key}
-                  label={getPlayerLabel(key)}
-                  hand={hand}
-                  playerKey={key}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Options */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {question.options.map((opt, i) => (
-            <AnswerButton
-              key={i}
-              option={opt}
-              index={i}
-              state={selectedIndex !== null ? answerStates[i] : 'idle'}
-              onClick={() => handleSelect(i)}
-              disabled={selectedIndex !== null}
-            />
-          ))}
-        </div>
-
-        {/* Practice explanation — shown after answering */}
-        {isPractice && showExplanation && (
-          <div
-            className="mt-4 rounded-xl px-4 py-4"
-            style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}
-          >
-            <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#fbbf24' }}>
-              Explanation
-            </p>
-            <p className="font-mono text-sm leading-relaxed" style={{ color: '#e8e8f0' }}>
-              {question.explanation}
-            </p>
-            <p className="font-mono text-xs mt-2" style={{ color: '#686880' }}>
-              Moving on in a moment…
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Ready screen ─────────────────────────────────────────────────────────────
 function ReadyScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-      <div className="mb-6 flex items-center justify-center w-16 h-16 rounded-full" style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}>
+      <div
+        className="mb-6 flex items-center justify-center w-16 h-16 rounded-full"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
+      >
         <Spade className="w-8 h-8" style={{ color: '#4ade80' }} />
       </div>
 
@@ -595,20 +713,20 @@ function ReadyScreen({ onStart }: { onStart: () => void }) {
 
 // ─── Results ──────────────────────────────────────────────────────────────────
 function Results({
-  records,
-  questions,
+  section1Records,
+  section2Records,
   playerName,
   onRestart,
 }: {
-  records: QuestionRecord[];
-  questions: PokerQuestion[];
+  section1Records: Section1Record[];
+  section2Records: Section2Record[];
   playerName: string;
   onRestart: () => void;
 }) {
-  const score = records.filter((r) => r.correct).length;
-  const totalMs = records.reduce((s, r) => s + r.timeMs, 0);
-  const avgMs = totalMs / records.length;
-  const accuracy = Math.round((score / records.length) * 100);
+  const score = section1Records.filter((r) => r.correct).length;
+  const totalMs = section1Records.reduce((s, r) => s + r.timeMs, 0);
+  const avgMs = section1Records.length > 0 ? totalMs / section1Records.length : 0;
+  const accuracy = section1Records.length > 0 ? Math.round((score / section1Records.length) * 100) : 0;
   const speed = getSpeedRating(avgMs);
 
   // Save to localStorage on mount
@@ -616,15 +734,20 @@ function Results({
     const submission: SubmissionRecord = {
       name: playerName,
       score,
-      total: records.length,
+      total: section1Records.length,
       totalMs,
       avgMs,
       accuracy,
       completedAt: new Date().toISOString(),
-      answers: records.map((r) => ({
+      answers: section1Records.map((r) => ({
         questionId: r.questionId,
         correct: r.correct,
         timeMs: r.timeMs,
+      })),
+      section2: section2Records.map((r) => ({
+        questionId: r.questionId,
+        action: r.action,
+        reasoning: r.reasoning,
       })),
     };
 
@@ -651,7 +774,7 @@ function Results({
             <Trophy className="w-10 h-10" style={{ color: '#4ade80' }} />
           </div>
           <h1 className="font-display text-4xl font-bold mb-1" style={{ color: '#e8e8f0' }}>
-            {score}/{records.length}
+            {score}/{section1Records.length}
           </h1>
           <p className="font-mono text-sm mb-1" style={{ color: speed.color }}>
             {speed.label}
@@ -685,15 +808,19 @@ function Results({
           ))}
         </div>
 
-        {/* Hand-by-hand breakdown */}
+        {/* Section 1 breakdown */}
         <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
-          Hand-by-Hand Breakdown
+          Section 1 — Which Hand Wins?
         </p>
 
         <div className="space-y-3 mb-10">
-          {records.map((record, i) => {
-            const q = questions[i];
-            const selectedOption = q.options[record.selectedIndex];
+          {section1Records.map((record, i) => {
+            const q = section1Questions.find((q) => q.id === record.questionId);
+            if (!q) return null;
+            const answerLabel = ANSWER_LABELS[record.answer];
+            const correctLabel = ANSWER_LABELS[q.correctAnswer];
+            const answerColor = record.correct ? '#4ade80' : '#ef4444';
+
             return (
               <div
                 key={i}
@@ -701,7 +828,6 @@ function Results({
                 style={{
                   background: '#12121a',
                   border: `1px solid ${record.correct ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                  animationDelay: `${i * 60}ms`,
                 }}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -724,11 +850,17 @@ function Results({
                   </span>
                 </div>
 
-                <p className="font-mono text-xs mb-2 ml-8" style={{ color: '#686880' }}>
-                  Your answer: <span style={{ color: record.correct ? '#4ade80' : '#ef4444' }}>
-                    {coloriseSuits(selectedOption.text)}
-                  </span>
+                <p className="font-mono text-xs mb-1 ml-8" style={{ color: '#686880' }}>
+                  Your answer:{' '}
+                  <span style={{ color: answerColor }}>{answerLabel}</span>
                 </p>
+
+                {!record.correct && (
+                  <p className="font-mono text-xs mb-2 ml-8" style={{ color: '#686880' }}>
+                    Correct:{' '}
+                    <span style={{ color: ANSWER_COLORS[q.correctAnswer] }}>{correctLabel}</span>
+                  </p>
+                )}
 
                 <p className="font-mono text-xs leading-relaxed ml-8" style={{ color: '#9898b0' }}>
                   {q.explanation}
@@ -737,6 +869,50 @@ function Results({
             );
           })}
         </div>
+
+        {/* Section 2 summary */}
+        {section2Records.length > 0 && (
+          <>
+            <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
+              Section 2 — What's Your Play?
+            </p>
+
+            <div className="space-y-3 mb-10">
+              {section2Records.map((record, i) => {
+                const q = section2Questions.find((q) => q.id === record.questionId);
+                if (!q) return null;
+                const actionBtn = ACTION_BUTTONS.find((b) => b.key === record.action);
+                const actionColor = actionBtn?.color ?? '#9898b0';
+
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl p-4"
+                    style={{ background: '#12121a', border: '1px solid rgba(167,139,250,0.3)' }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold flex-shrink-0"
+                        style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa' }}
+                      >
+                        ♟
+                      </span>
+                      <span className="font-mono text-sm font-medium" style={{ color: '#e8e8f0' }}>
+                        {q.title}
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs mb-1 ml-8" style={{ color: '#686880' }}>
+                      Action: <span style={{ color: actionColor, fontWeight: 600 }}>{record.action}</span>
+                    </p>
+                    <p className="font-mono text-xs leading-relaxed ml-8" style={{ color: '#9898b0' }}>
+                      "{record.reasoning}"
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -763,64 +939,95 @@ function Results({
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
-type GameState = 'landing' | 'practice' | 'ready' | 'question' | 'results';
+type GameState = 'landing' | 'practice' | 'ready' | 'section1' | 'section_transition' | 'section2' | 'results';
 
 export default function Poker() {
   const [gameState, setGameState] = useState<GameState>('landing');
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [practiceIndex, setPracticeIndex] = useState(0);
-  const [records, setRecords] = useState<QuestionRecord[]>([]);
+  const [section1Index, setSection1Index] = useState(0);
+  const [section2Index, setSection2Index] = useState(0);
+  const [section1Records, setSection1Records] = useState<Section1Record[]>([]);
+  const [section2Records, setSection2Records] = useState<Section2Record[]>([]);
   const [playerName, setPlayerName] = useState('');
 
   const handleStart = useCallback((name: string) => {
     setPlayerName(name);
-    setRecords([]);
-    setCurrentIndex(0);
+    setSection1Records([]);
+    setSection2Records([]);
     setPracticeIndex(0);
+    setSection1Index(0);
+    setSection2Index(0);
     setGameState('practice');
   }, []);
 
   const handlePracticeAnswer = useCallback(
-    (_selectedIndex: number, _correct: boolean, _timeMs: number) => {
-      // Practice answers are NOT recorded
+    (_answer: CorrectAnswer, _correct: boolean, _timeMs: number) => {
       if (practiceIndex + 1 >= practiceQuestions.length) {
         setGameState('ready');
       } else {
-        setPracticeIndex(practiceIndex + 1);
+        setPracticeIndex((i) => i + 1);
       }
     },
     [practiceIndex]
   );
 
   const handleReadyStart = useCallback(() => {
-    setCurrentIndex(0);
-    setGameState('question');
+    setSection1Index(0);
+    setGameState('section1');
   }, []);
 
-  const handleAnswer = useCallback(
-    (selectedIndex: number, correct: boolean, timeMs: number) => {
-      const newRecord: QuestionRecord = {
-        questionId: pokerQuestions[currentIndex].id,
-        selectedIndex,
+  const handleSection1Answer = useCallback(
+    (answer: CorrectAnswer, correct: boolean, timeMs: number) => {
+      const q = section1Questions[section1Index];
+      const newRecord: Section1Record = {
+        questionId: q.id,
+        answer,
         correct,
         timeMs,
       };
-      const updatedRecords = [...records, newRecord];
-      setRecords(updatedRecords);
+      const updated = [...section1Records, newRecord];
+      setSection1Records(updated);
 
-      if (currentIndex + 1 >= pokerQuestions.length) {
-        setGameState('results');
+      if (section1Index + 1 >= section1Questions.length) {
+        setGameState('section_transition');
       } else {
-        setCurrentIndex(currentIndex + 1);
+        setSection1Index((i) => i + 1);
       }
     },
-    [currentIndex, records]
+    [section1Index, section1Records]
+  );
+
+  const handleTransitionContinue = useCallback(() => {
+    setSection2Index(0);
+    setGameState('section2');
+  }, []);
+
+  const handleSection2Answer = useCallback(
+    (action: string, reasoning: string) => {
+      const q = section2Questions[section2Index];
+      const newRecord: Section2Record = {
+        questionId: q.id,
+        action,
+        reasoning,
+      };
+      const updated = [...section2Records, newRecord];
+      setSection2Records(updated);
+
+      if (section2Index + 1 >= section2Questions.length) {
+        setGameState('results');
+      } else {
+        setSection2Index((i) => i + 1);
+      }
+    },
+    [section2Index, section2Records]
   );
 
   const handleRestart = useCallback(() => {
     setGameState('landing');
     setPlayerName('');
   }, []);
+
+  const section1Score = section1Records.filter((r) => r.correct).length;
 
   return (
     <div
@@ -831,7 +1038,7 @@ export default function Poker() {
         fontFamily: 'inherit',
       }}
     >
-      {/* Nav back link */}
+      {/* Nav back link — only on landing */}
       {gameState === 'landing' && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center px-6 py-5 md:px-12">
           <Link
@@ -848,7 +1055,7 @@ export default function Poker() {
       {gameState === 'landing' && <Landing onStart={handleStart} />}
 
       {gameState === 'practice' && (
-        <QuestionView
+        <WhichHandWinsView
           key={`practice-${practiceIndex}`}
           question={practiceQuestions[practiceIndex]}
           index={practiceIndex}
@@ -861,21 +1068,36 @@ export default function Poker() {
 
       {gameState === 'ready' && <ReadyScreen onStart={handleReadyStart} />}
 
-      {gameState === 'question' && (
-        <QuestionView
-          key={currentIndex}
-          question={pokerQuestions[currentIndex]}
-          index={currentIndex}
-          total={pokerQuestions.length}
+      {gameState === 'section1' && (
+        <WhichHandWinsView
+          key={`s1-${section1Index}`}
+          question={section1Questions[section1Index]}
+          index={section1Index}
+          total={section1Questions.length}
           playerName={playerName}
-          onAnswer={handleAnswer}
+          onAnswer={handleSection1Answer}
+        />
+      )}
+
+      {gameState === 'section_transition' && (
+        <SectionTransition score={section1Score} onContinue={handleTransitionContinue} />
+      )}
+
+      {gameState === 'section2' && (
+        <RightPlayView
+          key={`s2-${section2Index}`}
+          question={section2Questions[section2Index]}
+          index={section2Index}
+          total={section2Questions.length}
+          playerName={playerName}
+          onAnswer={handleSection2Answer}
         />
       )}
 
       {gameState === 'results' && (
         <Results
-          records={records}
-          questions={pokerQuestions}
+          section1Records={section1Records}
+          section2Records={section2Records}
           playerName={playerName}
           onRestart={handleRestart}
         />
