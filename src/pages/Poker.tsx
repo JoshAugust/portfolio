@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Clock, Target, ChevronRight, RotateCcw, Spade } from 'lucide-react';
-import { pokerQuestions, type PokerQuestion, type PokerOption } from '../data/pokerQuestions';
+import { pokerQuestions, practiceQuestions, type PokerQuestion, type PokerOption } from '../data/pokerQuestions';
 
 // ─── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mbat-poker-submissions';
@@ -50,9 +50,28 @@ function parseCards(text: string): ParsedCard[] {
   return results;
 }
 
+// Extract board cards from scenario — only looks for "board shows:" / "board runs out:" patterns
+function parseBoardCards(scenario: string): ParsedCard[] {
+  const boardMatch = scenario.match(/board (?:shows|runs out):\s*([^.]+)/i);
+  if (!boardMatch) return [];
+  return parseCards(boardMatch[1]);
+}
+
 // Strip card tokens and return the remaining text (e.g. "(Fours full of Eights)")
 function remainingText(text: string): string {
   return text.replace(/[AKQJT2-9][♠♥♦♣]/g, '').trim();
+}
+
+// ─── Player colour helpers ─────────────────────────────────────────────────────
+function getPlayerColor(key: string): string {
+  const k = key.toLowerCase().replace('_', '');
+  if (k === 'playera' || k === 'you') return '#60a5fa';
+  if (k === 'playerb' || k === 'opponent') return '#f472b6';
+  return '#9898b0';
+}
+
+function getPlayerLabel(key: string): string {
+  return key.replace(/_/g, ' ').toUpperCase();
 }
 
 // ─── Suit coloriser ────────────────────────────────────────────────────────────
@@ -67,6 +86,31 @@ function coloriseSuits(text: string): React.ReactNode[] {
     }
     return <span key={i}>{part}</span>;
   });
+}
+
+// ─── Answer text coloriser (player names + suits) ──────────────────────────────
+function coloriseAnswerText(text: string): React.ReactNode {
+  const pattern = /(Player A|Player B|Opponent|You(?= wins| win))/g;
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part === 'Player A') {
+          return <strong key={i} style={{ color: '#60a5fa' }}>{part}</strong>;
+        }
+        if (part === 'Player B') {
+          return <strong key={i} style={{ color: '#f472b6' }}>{part}</strong>;
+        }
+        if (part === 'You') {
+          return <strong key={i} style={{ color: '#60a5fa' }}>{part}</strong>;
+        }
+        if (part === 'Opponent') {
+          return <strong key={i} style={{ color: '#f472b6' }}>{part}</strong>;
+        }
+        return <span key={i}>{coloriseSuits(part)}</span>;
+      })}
+    </>
+  );
 }
 
 // ─── Speed rating helper ───────────────────────────────────────────────────────
@@ -90,31 +134,37 @@ function TimerDisplay({ ms }: { ms: number }) {
 }
 
 // ─── Card display (with images) ────────────────────────────────────────────────
-function CardDisplay({ label, hand }: { label: string; hand: string }) {
+function CardDisplay({ label, hand, playerKey }: { label: string; hand: string; playerKey?: string }) {
   const cards = parseCards(hand);
   const extra = remainingText(hand);
+  const color = playerKey ? getPlayerColor(playerKey) : '#9898b0';
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-mono uppercase tracking-widest" style={{ color: '#9898b0' }}>{label}</span>
-      <div
-        className="px-3 py-2 rounded-lg"
-        style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
+    <div className="flex flex-col gap-1 flex-1 min-w-0">
+      <span
+        className="text-xs font-mono uppercase tracking-widest"
+        style={{ color }}
       >
-        <div className="flex items-center flex-wrap gap-1.5">
+        {label}
+      </span>
+      <div
+        className="px-3 py-2 rounded-lg inline-flex"
+        style={{ background: '#1a472a', border: `1px solid ${color}40` }}
+      >
+        <div className="flex items-center flex-wrap gap-1">
           {cards.map((card, i) => (
             <img
               key={i}
               src={card.imageUrl}
               alt={`${card.rank}${card.suit}`}
               style={{
-                height: '70px',
+                height: '60px',
                 borderRadius: '4px',
                 border: '1px solid rgba(255,255,255,0.15)',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                 display: 'block',
               }}
-              className="md:h-[70px] h-[55px]"
+              className="md:h-[60px] h-[50px]"
             />
           ))}
           {extra && (
@@ -126,16 +176,54 @@ function CardDisplay({ label, hand }: { label: string; hand: string }) {
   );
 }
 
+// ─── Board card row ────────────────────────────────────────────────────────────
+function BoardDisplay({ cards }: { cards: ParsedCard[] }) {
+  if (cards.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 mb-3">
+      <span className="text-xs font-mono uppercase tracking-widest" style={{ color: '#4ade80' }}>
+        Board
+      </span>
+      <div
+        className="px-3 py-2 rounded-lg inline-flex"
+        style={{ background: '#0d2e1a', border: '1px solid #2d6a4f' }}
+      >
+        <div className="flex items-center flex-wrap gap-1">
+          {cards.map((card, i) => (
+            <img
+              key={i}
+              src={card.imageUrl}
+              alt={`${card.rank}${card.suit}`}
+              style={{
+                height: '60px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                display: 'block',
+              }}
+              className="md:h-[60px] h-[50px]"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Answer button ─────────────────────────────────────────────────────────────
 type AnswerState = 'idle' | 'correct' | 'wrong';
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
+
 function AnswerButton({
   option,
+  index,
   state,
   onClick,
   disabled,
 }: {
   option: PokerOption;
+  index: number;
   state: AnswerState;
   onClick: () => void;
   disabled: boolean;
@@ -151,6 +239,11 @@ function AnswerButton({
       : state === 'wrong'
       ? '1px solid #ef4444'
       : '1px solid rgba(255,255,255,0.1)',
+    borderLeft: state === 'correct'
+      ? '3px solid #22c55e'
+      : state === 'wrong'
+      ? '3px solid #ef4444'
+      : '3px solid rgba(255,255,255,0.15)',
     color: state === 'correct'
       ? '#22c55e'
       : state === 'wrong'
@@ -159,14 +252,26 @@ function AnswerButton({
     transition: 'all 0.2s ease',
   };
 
+  const letterColor = state === 'correct'
+    ? '#22c55e'
+    : state === 'wrong'
+    ? '#ef4444'
+    : '#686880';
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-full text-left px-4 py-3 rounded-lg text-sm font-mono leading-relaxed cursor-pointer disabled:cursor-default hover:opacity-90 ${state === 'wrong' ? 'animate-shake' : ''}`}
+      className={`w-full text-left px-4 py-3 rounded-lg text-sm font-mono leading-relaxed cursor-pointer disabled:cursor-default hover:opacity-90 flex items-start gap-3 ${state === 'wrong' ? 'animate-shake' : ''}`}
       style={baseStyle}
     >
-      {coloriseSuits(option.text)}
+      <span
+        className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-xs font-bold mt-0.5"
+        style={{ background: 'rgba(255,255,255,0.06)', color: letterColor, fontFamily: 'monospace' }}
+      >
+        {OPTION_LETTERS[index] ?? String(index + 1)}
+      </span>
+      <span>{coloriseAnswerText(option.text)}</span>
     </button>
   );
 }
@@ -294,16 +399,19 @@ function QuestionView({
   total,
   playerName,
   onAnswer,
+  isPractice,
 }: {
   question: PokerQuestion;
   index: number;
   total: number;
   playerName: string;
   onAnswer: (selectedIndex: number, correct: boolean, timeMs: number) => void;
+  isPractice?: boolean;
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [answerStates, setAnswerStates] = useState<AnswerState[]>(question.options.map(() => 'idle'));
+  const [showExplanation, setShowExplanation] = useState(false);
   const startRef = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const answeredRef = useRef(false);
@@ -313,6 +421,7 @@ function QuestionView({
     setElapsed(0);
     setSelectedIndex(null);
     setAnswerStates(question.options.map(() => 'idle'));
+    setShowExplanation(false);
     answeredRef.current = false;
 
     timerRef.current = setInterval(() => {
@@ -341,22 +450,44 @@ function QuestionView({
     });
     setAnswerStates(newStates);
 
-    // Move to next after brief pause
-    setTimeout(() => {
-      onAnswer(idx, correct, timeMs);
-    }, 1200);
-  }, [question, onAnswer]);
+    if (isPractice) {
+      // Show explanation for 3s then advance
+      setShowExplanation(true);
+      setTimeout(() => {
+        onAnswer(idx, correct, timeMs);
+      }, 3000);
+    } else {
+      // Move to next after brief pause
+      setTimeout(() => {
+        onAnswer(idx, correct, timeMs);
+      }, 1200);
+    }
+  }, [question, onAnswer, isPractice]);
 
   const progress = ((index) / total) * 100;
+  const boardCards = parseBoardCards(question.scenario);
+  const progressBarColor = isPractice ? '#fbbf24' : '#4ade80';
 
   return (
     <div className="min-h-screen flex flex-col px-4 py-6 md:py-10">
+      {/* Practice banner */}
+      {isPractice && (
+        <div
+          className="w-full max-w-2xl mx-auto mb-4 rounded-lg px-4 py-2 flex items-center justify-center gap-2"
+          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)' }}
+        >
+          <span className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
+            ★ PRACTICE — This doesn't count
+          </span>
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="w-full max-w-2xl mx-auto mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: '#686880' }}>
-              Hand {index + 1} / {total}
+            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: isPractice ? '#fbbf24' : '#686880' }}>
+              {isPractice ? `Practice ${index + 1} / ${total}` : `Hand ${index + 1} / ${total}`}
             </span>
             {playerName && (
               <span className="font-mono text-xs" style={{ color: '#4ade80' }}>
@@ -370,7 +501,7 @@ function QuestionView({
         <div className="w-full h-1 rounded-full" style={{ background: '#2a2a3a' }}>
           <div
             className="h-1 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%`, background: '#4ade80' }}
+            style={{ width: `${progress}%`, background: progressBarColor }}
           />
         </div>
       </div>
@@ -378,30 +509,38 @@ function QuestionView({
       {/* Card */}
       <div className="w-full max-w-2xl mx-auto flex-1">
         <div
-          className="rounded-2xl p-6 md:p-8 mb-5"
-          style={{ background: '#12121a', border: '1px solid #2a2a3a' }}
+          className="rounded-2xl p-5 md:p-7 mb-5"
+          style={{
+            background: '#12121a',
+            border: isPractice ? '1px solid rgba(251,191,36,0.25)' : '1px solid #2a2a3a',
+          }}
         >
-          {/* Title */}
-          <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#686880' }}>
+          {/* Type badge — no title */}
+          <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: '#686880' }}>
             {question.type === 'which_hand_wins' ? '🃏 Which hand wins?' : '♟ What\'s the right play?'}
           </p>
-          <h2 className="font-display text-xl md:text-2xl font-semibold mb-4" style={{ color: '#e8e8f0' }}>
-            {question.title}
-          </h2>
 
-          {/* Scenario box — keep as text */}
+          {/* Board cards (if any extracted from scenario) */}
+          <BoardDisplay cards={boardCards} />
+
+          {/* Scenario box */}
           <div
-            className="rounded-xl p-4 mb-4 text-sm font-mono leading-relaxed"
+            className="rounded-xl px-4 py-3 mb-4 text-sm font-mono leading-relaxed"
             style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#e8e8f0' }}
           >
             {coloriseSuits(question.scenario)}
           </div>
 
-          {/* Player hands — card images */}
+          {/* Player hands — side by side on sm+ */}
           {question.players && (
-            <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3 mb-2">
               {Object.entries(question.players).map(([key, hand]) => (
-                <CardDisplay key={key} label={key.replace('_', ' ')} hand={hand} />
+                <CardDisplay
+                  key={key}
+                  label={getPlayerLabel(key)}
+                  hand={hand}
+                  playerKey={key}
+                />
               ))}
             </div>
           )}
@@ -413,13 +552,59 @@ function QuestionView({
             <AnswerButton
               key={i}
               option={opt}
+              index={i}
               state={selectedIndex !== null ? answerStates[i] : 'idle'}
               onClick={() => handleSelect(i)}
               disabled={selectedIndex !== null}
             />
           ))}
         </div>
+
+        {/* Practice explanation — shown after answering */}
+        {isPractice && showExplanation && (
+          <div
+            className="mt-4 rounded-xl px-4 py-4"
+            style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}
+          >
+            <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: '#fbbf24' }}>
+              Explanation
+            </p>
+            <p className="font-mono text-sm leading-relaxed" style={{ color: '#e8e8f0' }}>
+              {question.explanation}
+            </p>
+            <p className="font-mono text-xs mt-2" style={{ color: '#686880' }}>
+              Moving on in a moment…
+            </p>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Ready screen ─────────────────────────────────────────────────────────────
+function ReadyScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <div className="mb-6 flex items-center justify-center w-16 h-16 rounded-full" style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}>
+        <Spade className="w-8 h-8" style={{ color: '#4ade80' }} />
+      </div>
+
+      <h1 className="font-display text-3xl md:text-4xl font-bold mb-3" style={{ color: '#e8e8f0' }}>
+        Ready for the real thing?
+      </h1>
+      <p className="font-mono text-sm mb-10" style={{ color: '#9898b0' }}>
+        The next 10 hands count. Good luck.
+      </p>
+
+      <button
+        onClick={onStart}
+        className="flex items-center justify-center gap-2 px-10 py-4 rounded-full font-mono text-sm uppercase tracking-widest font-medium transition-all hover:scale-105 active:scale-95"
+        style={{ background: '#1a472a', border: '1px solid #2d6a4f', color: '#4ade80' }}
+      >
+        Start Quiz
+        <ChevronRight className="w-4 h-4" />
+      </button>
     </div>
   );
 }
@@ -594,17 +779,36 @@ function Results({
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
-type GameState = 'landing' | 'question' | 'results';
+type GameState = 'landing' | 'practice' | 'ready' | 'question' | 'results';
 
 export default function Poker() {
   const [gameState, setGameState] = useState<GameState>('landing');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [practiceIndex, setPracticeIndex] = useState(0);
   const [records, setRecords] = useState<QuestionRecord[]>([]);
   const [playerName, setPlayerName] = useState('');
 
   const handleStart = useCallback((name: string) => {
     setPlayerName(name);
     setRecords([]);
+    setCurrentIndex(0);
+    setPracticeIndex(0);
+    setGameState('practice');
+  }, []);
+
+  const handlePracticeAnswer = useCallback(
+    (_selectedIndex: number, _correct: boolean, _timeMs: number) => {
+      // Practice answers are NOT recorded
+      if (practiceIndex + 1 >= practiceQuestions.length) {
+        setGameState('ready');
+      } else {
+        setPracticeIndex(practiceIndex + 1);
+      }
+    },
+    [practiceIndex]
+  );
+
+  const handleReadyStart = useCallback(() => {
     setCurrentIndex(0);
     setGameState('question');
   }, []);
@@ -658,6 +862,20 @@ export default function Poker() {
       )}
 
       {gameState === 'landing' && <Landing onStart={handleStart} />}
+
+      {gameState === 'practice' && (
+        <QuestionView
+          key={`practice-${practiceIndex}`}
+          question={practiceQuestions[practiceIndex]}
+          index={practiceIndex}
+          total={practiceQuestions.length}
+          playerName={playerName}
+          onAnswer={handlePracticeAnswer}
+          isPractice
+        />
+      )}
+
+      {gameState === 'ready' && <ReadyScreen onStart={handleReadyStart} />}
 
       {gameState === 'question' && (
         <QuestionView

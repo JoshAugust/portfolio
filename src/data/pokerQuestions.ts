@@ -19,6 +19,47 @@ export interface PokerQuestion {
   source: string;
 }
 
+export const practiceQuestions: PokerQuestion[] = [
+  {
+    id: 101,
+    type: 'which_hand_wins',
+    title: 'Practice — Pair vs. Two Pair',
+    scenario: 'The board shows: 3♠ 7♦ T♣ K♥ 2♦',
+    players: {
+      player_a: 'K♠ 9♣ (Pair of Kings)',
+      player_b: 'T♠ 7♣ (Two Pair — Tens and Sevens)',
+    },
+    options: [
+      { text: 'Player A wins — Kings are the highest pair', correct: false },
+      { text: 'Player B wins — two pair beats one pair', correct: true },
+      { text: 'Split pot — both have strong hands', correct: false },
+      { text: 'Player A wins — they have the best kicker', correct: false },
+    ],
+    explanation:
+      'Two pair always beats one pair, regardless of the ranks. Player B\'s Tens and Sevens (two pair) beats Player A\'s Kings (one pair). Hand rankings: High Card < One Pair < Two Pair < Three of a Kind < Straight < Flush < Full House < Four of a Kind < Straight Flush.',
+    source: 'Practice question',
+  },
+  {
+    id: 102,
+    type: 'which_hand_wins',
+    title: 'Practice — Flush vs. Straight',
+    scenario: 'The board shows: 4♥ 8♥ J♥ 3♠ 6♦',
+    players: {
+      player_a: 'A♥ 2♥ (Heart Flush)',
+      player_b: '5♠ 7♣ (Straight: 4-5-6-7-8)',
+    },
+    options: [
+      { text: 'Player B wins — straights are very strong', correct: false },
+      { text: 'Split pot — both are five-card hands', correct: false },
+      { text: 'Player A wins — a flush beats a straight', correct: true },
+      { text: 'Player B wins — their straight uses more board cards', correct: false },
+    ],
+    explanation:
+      'A flush (five cards of the same suit) always beats a straight (five consecutive cards). Player A has A♥-J♥-8♥-4♥-2♥ (heart flush). Player B has 4-5-6-7-8 (straight). Remember: Straight < Flush in the hand rankings.',
+    source: 'Practice question',
+  },
+];
+
 export const pokerQuestions: PokerQuestion[] = [
   {
     id: 1,
