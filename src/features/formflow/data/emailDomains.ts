@@ -1,0 +1,60 @@
+/**
+ * emailDomains.ts
+ * Typo-to-correct domain mappings and known provider list.
+ */
+
+export const EMAIL_TYPO_MAP: Record<string, string> = {
+  'gmial.com': 'gmail.com',
+  'gmai.com': 'gmail.com',
+  'gamil.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gmail.co': 'gmail.com',
+  'gnail.com': 'gmail.com',
+  'gmaill.com': 'gmail.com',
+  'gmali.com': 'gmail.com',
+  'gimail.com': 'gmail.com',
+  'yaho.com': 'yahoo.com',
+  'yhoo.com': 'yahoo.com',
+  'yahooo.com': 'yahoo.com',
+  'yahoo.co': 'yahoo.com',
+  'yaoo.com': 'yahoo.com',
+  'yaho.co': 'yahoo.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmal.com': 'hotmail.com',
+  'hotmai.com': 'hotmail.com',
+  'hotmaill.com': 'hotmail.com',
+  'hormail.com': 'hotmail.com',
+  'outlok.com': 'outlook.com',
+  'outloo.com': 'outlook.com',
+  'outlookk.com': 'outlook.com',
+  'outloook.com': 'outlook.com',
+  'outlokk.com': 'outlook.com',
+  'icloud.co': 'icloud.com',
+  'icoud.com': 'icloud.com',
+  'iclod.com': 'icloud.com',
+  'icloud.con': 'icloud.com',
+  'proton.m': 'proton.me',
+  'protonmal.com': 'protonmail.com',
+  'protonmaill.com': 'protonmail.com',
+  'protonmial.com': 'protonmail.com',
+  'aol.con': 'aol.com',
+  'aool.com': 'aol.com',
+  'live.con': 'live.com',
+  'msn.con': 'msn.com',
+  'me.con': 'me.com',
+};
+
+/** Domains that get a favicon/emoji displayed */
+export const KNOWN_DOMAINS: Record<string, string> = {
+  'gmail.com': '📧',
+  'yahoo.com': '📧',
+  'hotmail.com': '📧',
+  'outlook.com': '📧',
+  'icloud.com': '📧',
+  'proton.me': '📧',
+  'protonmail.com': '📧',
+  'aol.com': '📧',
+  'live.com': '📧',
+  'msn.com': '📧',
+  'me.com': '📧',
+};

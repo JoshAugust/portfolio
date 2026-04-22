@@ -48,6 +48,8 @@ jobs:
           cp dist/index.html dist/finchex/index.html
           mkdir -p dist/music
           cp dist/index.html dist/music/index.html
+          mkdir -p dist/formflow
+          cp dist/index.html dist/formflow/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
