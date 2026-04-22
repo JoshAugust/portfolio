@@ -595,19 +595,6 @@ function Landing({ onStart }: { onStart: (name: string) => void }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-      {/* Admin link — subtle, top-right */}
-      <div className="fixed top-4 right-4">
-        <Link
-          to="/poker/admin"
-          className="flex items-center gap-1 font-mono text-xs transition-colors hover:opacity-80"
-          style={{ color: '#686880' }}
-          title="Admin"
-        >
-          <Settings className="w-3 h-3" />
-          <span>Admin</span>
-        </Link>
-      </div>
-
       <div
         className="mb-6 flex items-center justify-center w-16 h-16 rounded-full"
         style={{ background: '#1a472a', border: '1px solid #2d6a4f' }}
@@ -1040,7 +1027,7 @@ export default function Poker() {
     >
       {/* Nav back link — only on landing */}
       {gameState === 'landing' && (
-        <div className="fixed top-0 left-0 right-0 z-50 flex items-center px-6 py-5 md:px-12">
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-5 md:px-12">
           <Link
             to="/"
             className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest transition-colors hover:opacity-80"
@@ -1048,6 +1035,15 @@ export default function Poker() {
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back
+          </Link>
+          <Link
+            to="/poker/admin"
+            className="flex items-center gap-1 font-mono text-xs transition-colors hover:opacity-80"
+            style={{ color: '#686880' }}
+            title="Admin"
+          >
+            <Settings className="w-3 h-3" />
+            <span>Admin</span>
           </Link>
         </div>
       )}
