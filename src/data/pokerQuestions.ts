@@ -133,16 +133,16 @@ export const section1Questions: WhichHandWinsQuestion[] = [
   {
     id: 11,
     type: 'which_hand_wins',
-    title: 'The Set Trap',
-    scenario: 'The board shows: A♠ 7♦ 7♣ 3♥ 9♠',
+    title: 'The Kicker Trap',
+    scenario: 'The board shows: K♠ Q♦ J♣ T♥ 3♠',
     players: {
-      player_a: 'A♦ 7♥',
-      player_b: '9♣ 9♦',
+      player_a: 'K♦ 5♣',
+      player_b: 'K♥ 9♦',
     },
-    correctAnswer: 'player_b',
+    correctAnswer: 'split',
     explanation:
-      "Both players make a full house. Player A has Sevens full of Aces (7-7-7-A-A) using 7♥ from hand plus 7♦ 7♣ on board, paired with Aces. Player B has Nines full of Sevens (9-9-9-7-7) using 9♣ 9♦ from hand plus 9♠ on board, with the board's 7♦ 7♣ as the pair. With full houses, the three-of-a-kind rank always determines the winner — Nines beat Sevens.",
-    source: 'Hand ranking fundamentals',
+      "Both players have a pair of Kings. But the kicker doesn't matter here — the board has Q, J, and T which are all higher than either player's second card (5 and 9). Both players' best five cards are K-K-Q-J-T. When the board cards outrank your kicker, it's always a split pot.",
+    source: 'Kicker play fundamentals',
   },
   {
     id: 12,
@@ -193,32 +193,32 @@ export const section2Questions: RightPlayQuestion[] = [
   {
     id: 5,
     type: 'right_play',
-    title: 'Queens Facing a 3-Bet',
+    title: 'Queens Facing a Re-Raise',
     scenario:
-      'MTT, Level 12 (600/1200 + 1200 ante). You have 45BB. You open Q♠ Q♥ to 2.5BB from the Hijack. A loose-aggressive player on the Button 3-bets to 7BB. Blinds fold. Action on you.',
+      "You're late stage in a tournament with 45 big blinds. You raise with Q♠ Q♥ from the Hijack. A loose, aggressive player on the Button re-raises to 7BB. The blinds fold. It's on you.",
     explanation:
-      "In a tournament with 45BB, flatting QQ against a Button 3-bet from a LAG is reasonable — you keep their wide 3-betting range in while maintaining pot control. However, 4-betting small (to ~16BB) is also viable at this stack depth to build the pot with a premium hand. Shoving risks folding out worse hands. The key is stack-to-pot ratio: with 45BB, you have room to play postflop.",
+      "With 45BB, you have enough room to just call and play the flop — keeping their wide range in while controlling the pot size. Raising again is also fine at this stack depth to build the pot with a premium hand. Shoving is aggressive but risks folding out all the worse hands you want action from. The key question: do you want to play a big pot before the flop, or see a flop first?",
     source: "SplitSuit's '10 Tough Poker Hands' — Hand #2 (QQ vs Button 3-bet)",
   },
   {
     id: 6,
     type: 'right_play',
-    title: 'AK Deep-Stacked Facing a 3-Bet',
+    title: 'Ace-King Facing a Re-Raise',
     scenario:
-      'MTT, Level 15 (1000/2000 + 2000 ante). You have 35BB. You open A♠ K♠ to 2.2BB from middle position. A TAG in the Cutoff 3-bets to 6BB. Folds back to you.',
+      "You're deep in a tournament with 35 big blinds. You raise with A♠ K♠ from middle position. A tight, solid player in the Cutoff re-raises to 6BB. Everyone else folds. It's back to you.",
     explanation:
-      "At 35BB in a tournament, AKs is too strong to fold facing a 3-bet. Flatting keeps their range wide. 4-bet shoving is also a strong play since you have fold equity and AKs plays well all-in against a typical 3-bet range (QQ, AK, JJ). The dead money from the antes makes shoving more attractive than in a cash game.",
-    source: "SplitSuit's '10 Tough Poker Hands' — Hand #5 (AK facing TAG 3-bet at 200BB)",
+      "AK suited is too strong to fold here. Calling keeps their range wide and lets you see a flop. Going all-in is also a solid play — you have fold equity, and AK suited holds up well even when called. The antes in the pot make pushing more attractive. Against a tight player, calling is safer; against someone who re-raises a lot, shoving puts the pressure back on them.",
+    source: "SplitSuit's '10 Tough Poker Hands' — Hand #5 (AK facing 3-bet)",
   },
   {
     id: 7,
     type: 'right_play',
-    title: 'Kings in the Big Blind Facing a Squeeze',
+    title: 'Kings Facing a Squeeze',
     scenario:
-      "MTT, Level 18 (2000/4000 + 4000 ante). You have 30BB. An EP LAG opens to 2.2BB. Two players call. A TAG in the small blind squeezes to 9BB. You're in the big blind with K♣ K♠.",
+      "You're deep in a tournament with 30 big blinds. An aggressive player in early position raises. Two players call. A tight player in the small blind re-raises to 9BB. You're in the big blind with K♣ K♠.",
     explanation:
-      "With 30BB in a tournament, KK is almost always going all-in here. Unlike deep-stacked cash games where flatting can be devastating, at 30BB the stack-to-pot ratio is too shallow for postflop play. The pot already has ~16BB of dead money. Shoving puts maximum pressure on the squeezer and anyone else in the hand. Slow-playing KK at short/medium stacks in tournaments is a common leak.",
-    source: "SplitSuit's '10 Tough Poker Hands' — Hand #7 (KK vs squeeze at 200BB)",
+      "With 30BB, Kings are almost always going all-in here. The pot already has a lot of dead money from the opener and callers. At this stack depth, there's not enough room to call and play the flop comfortably — if an Ace hits, you're in a tough spot. Pushing all-in puts maximum pressure on everyone. Slow-playing big pairs with shorter stacks in tournaments is a common mistake.",
+    source: "SplitSuit's '10 Tough Poker Hands' — Hand #7 (KK vs squeeze)",
   },
 ];
 
