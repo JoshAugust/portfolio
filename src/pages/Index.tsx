@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Palette, Radio, Crosshair } from "lucide-react";
+import { Palette, Radio, Crosshair, Spade } from "lucide-react";
 
 const PALETTES = [
   { // Default Dark
@@ -128,6 +128,13 @@ const NavBar = () => (
       >
         <Crosshair className="w-3.5 h-3.5" style={{ color: '#3B82F6' }} />
         Prospector
+      </Link>
+      <Link
+        to="/poker"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-[11px] tracking-[0.15em] uppercase font-mono text-muted-foreground hover:text-foreground"
+      >
+        <Spade className="w-3.5 h-3.5" style={{ color: '#4ade80' }} />
+        Poker
       </Link>
     </div>
   </nav>

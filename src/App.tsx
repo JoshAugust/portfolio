@@ -4,6 +4,7 @@ import Index from './pages/Index';
 
 const OrchestraPage = lazy(() => import('./pages/Orchestra'));
 const ProspectorPage = lazy(() => import('./pages/Prospector'));
+const PokerPage = lazy(() => import('./pages/Poker'));
 
 const PageFallback = ({ label }: { label: string }) => (
   <div style={{
@@ -33,6 +34,14 @@ function App() {
           element={
             <Suspense fallback={<PageFallback label="Loading Prospector…" />}>
               <ProspectorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/poker"
+          element={
+            <Suspense fallback={<PageFallback label="Loading Poker…" />}>
+              <PokerPage />
             </Suspense>
           }
         />

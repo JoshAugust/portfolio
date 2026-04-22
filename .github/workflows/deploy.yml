@@ -40,6 +40,8 @@ jobs:
           cp dist/index.html dist/orchestra/index.html
           mkdir -p dist/prospector
           cp dist/index.html dist/prospector/index.html
+          mkdir -p dist/poker
+          cp dist/index.html dist/poker/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
