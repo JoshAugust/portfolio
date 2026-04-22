@@ -78,7 +78,7 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 3,
     type: 'which_hand_wins',
     title: 'The Board Plays',
-    scenario: 'The board shows: T♠ J♦ Q♣ K♥ A♠',
+    scenario: 'The board shows: K♥ T♠ A♠ J♦ Q♣',
     players: {
       player_a: 'A♦ J♣',
       player_b: 'Q♥ Q♦',
@@ -120,7 +120,7 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 10,
     type: 'which_hand_wins',
     title: 'The Hidden Straight',
-    scenario: 'The board shows: 5♦ 6♣ 7♠ 8♥ K♦',
+    scenario: 'The board shows: 8♥ K♦ 5♦ 7♠ 6♣',
     players: {
       player_a: 'T♠ T♥',
       player_b: '4♠ 4♣',
@@ -148,7 +148,7 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 12,
     type: 'which_hand_wins',
     title: 'The Nut Straight',
-    scenario: 'The board shows: 4♠ 5♦ 6♣ 7♥ K♠',
+    scenario: 'The board shows: 7♥ K♠ 4♠ 6♣ 5♦',
     players: {
       player_a: '8♣ 9♠',
       player_b: '8♠ 7♣',

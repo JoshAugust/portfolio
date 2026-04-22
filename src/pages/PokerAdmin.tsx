@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Trophy, Clock, Target, Download, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, Trophy, Clock, Target, Download, Trash2, Lock, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
+import { section1Questions, section2Questions } from '../data/pokerQuestions';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface SubmissionRecord {
@@ -125,9 +126,111 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
   );
 }
 
+// ─── Question title lookup ─────────────────────────────────────────────────────
+const s1TitleMap = Object.fromEntries(section1Questions.map((q) => [q.id, q.title]));
+const s2TitleMap = Object.fromEntries(section2Questions.map((q) => [q.id, q.title]));
+
+// ─── Expandable submission detail ──────────────────────────────────────────────
+function SubmissionDetail({ submission }: { submission: SubmissionRecord }) {
+  return (
+    <div className="px-4 py-4 flex flex-col gap-4" style={{ background: '#0d0d16' }}>
+      {/* Section 1 answers */}
+      <div>
+        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: '#686880' }}>
+          Section 1 — Which Hand Wins
+        </p>
+        <div className="grid gap-2">
+          {submission.answers.map((a, idx) => (
+            <div
+              key={a.questionId}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg"
+              style={{ background: '#12121a', border: '1px solid #1a1a2a' }}
+            >
+              <span className="flex-shrink-0">
+                {a.correct ? (
+                  <CheckCircle className="w-4 h-4" style={{ color: '#4ade80' }} />
+                ) : (
+                  <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />
+                )}
+              </span>
+              <span className="font-mono text-xs" style={{ color: '#686880' }}>
+                Q{idx + 1}
+              </span>
+              <span className="font-mono text-xs flex-1" style={{ color: '#9898b0' }}>
+                {s1TitleMap[a.questionId] || `Question ${a.questionId}`}
+              </span>
+              <span className="font-mono text-xs" style={{ color: '#686880' }}>
+                {formatMs(a.timeMs)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Section 2 answers */}
+      {submission.section2 && submission.section2.length > 0 && (
+        <div>
+          <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: '#686880' }}>
+            Section 2 — What&apos;s Your Play?
+          </p>
+          <div className="grid gap-3">
+            {submission.section2.map((s2, idx) => (
+              <div
+                key={s2.questionId}
+                className="px-4 py-3 rounded-lg"
+                style={{ background: '#12121a', border: '1px solid #1a1a2a' }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono text-xs" style={{ color: '#686880' }}>
+                    Q{idx + 1}
+                  </span>
+                  <span className="font-mono text-xs" style={{ color: '#9898b0' }}>
+                    {s2TitleMap[s2.questionId] || `Question ${s2.questionId}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="px-2 py-0.5 rounded font-mono text-xs font-medium"
+                    style={{
+                      background:
+                        s2.action === 'Fold' ? 'rgba(107,114,128,0.2)' :
+                        s2.action === 'Call' ? 'rgba(96,165,250,0.2)' :
+                        s2.action === 'Raise Small' ? 'rgba(250,204,21,0.2)' :
+                        'rgba(239,68,68,0.2)',
+                      color:
+                        s2.action === 'Fold' ? '#9ca3af' :
+                        s2.action === 'Call' ? '#60a5fa' :
+                        s2.action === 'Raise Small' ? '#facc15' :
+                        '#ef4444',
+                      border: '1px solid',
+                      borderColor:
+                        s2.action === 'Fold' ? 'rgba(107,114,128,0.3)' :
+                        s2.action === 'Call' ? 'rgba(96,165,250,0.3)' :
+                        s2.action === 'Raise Small' ? 'rgba(250,204,21,0.3)' :
+                        'rgba(239,68,68,0.3)',
+                    }}
+                  >
+                    {s2.action}
+                  </span>
+                </div>
+                {s2.reasoning && (
+                  <p className="font-mono text-xs leading-relaxed" style={{ color: '#9898b0' }}>
+                    &ldquo;{s2.reasoning}&rdquo;
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Admin dashboard ───────────────────────────────────────────────────────────
 function AdminDashboard() {
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   const loadSubmissions = useCallback(() => {
     try {
@@ -278,9 +381,9 @@ function AdminDashboard() {
               <table className="w-full font-mono text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#12121a', borderBottom: '1px solid #2a2a3a' }}>
-                    {['#', 'Name', 'Score', 'Accuracy', 'Total Time', 'Avg/Hand', 'Speed Rating', 'Date'].map((h) => (
+                    {['', '#', 'Name', 'Score', 'Accuracy', 'Total Time', 'Avg/Hand', 'Speed Rating', 'Date'].map((h) => (
                       <th
-                        key={h}
+                        key={h || 'expand'}
                         className="px-4 py-3 text-left text-xs uppercase tracking-widest"
                         style={{ color: '#686880', whiteSpace: 'nowrap' }}
                       >
@@ -293,46 +396,65 @@ function AdminDashboard() {
                   {submissions.map((s, i) => {
                     const speed = getSpeedRating(s.avgMs);
                     const isTop = i === 0;
+                    const isExpanded = expandedIdx === i;
                     return (
-                      <tr
-                        key={`${s.name}-${s.completedAt}`}
-                        style={{
-                          background: i % 2 === 0 ? '#0a0a0f' : '#0d0d14',
-                          borderBottom: '1px solid #1a1a2a',
-                        }}
-                      >
-                        <td className="px-4 py-3" style={{ color: isTop ? '#4ade80' : '#686880' }}>
-                          {isTop ? '🏆' : i + 1}
-                        </td>
-                        <td className="px-4 py-3 font-medium" style={{ color: '#e8e8f0', whiteSpace: 'nowrap' }}>
-                          {s.name}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            style={{
-                              color: s.score >= 8 ? '#4ade80' : s.score >= 5 ? '#facc15' : '#ef4444',
-                              fontWeight: 600,
-                            }}
-                          >
-                            {s.score}/{s.total}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3" style={{ color: '#9898b0' }}>
-                          {s.accuracy}%
-                        </td>
-                        <td className="px-4 py-3" style={{ color: '#9898b0' }}>
-                          {formatMs(s.totalMs)}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: '#9898b0' }}>
-                          {formatMs(s.avgMs)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span style={{ color: speed.color }}>{speed.label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#686880', whiteSpace: 'nowrap' }}>
-                          {formatDate(s.completedAt)}
-                        </td>
-                      </tr>
+                      <>
+                        <tr
+                          key={`${s.name}-${s.completedAt}`}
+                          onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                          className="cursor-pointer transition-colors"
+                          style={{
+                            background: isExpanded ? '#12121a' : i % 2 === 0 ? '#0a0a0f' : '#0d0d14',
+                            borderBottom: isExpanded ? 'none' : '1px solid #1a1a2a',
+                          }}
+                        >
+                          <td className="px-4 py-3 w-8">
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" style={{ color: '#686880' }} />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" style={{ color: '#686880' }} />
+                            )}
+                          </td>
+                          <td className="px-4 py-3" style={{ color: isTop ? '#4ade80' : '#686880' }}>
+                            {isTop ? '🏆' : i + 1}
+                          </td>
+                          <td className="px-4 py-3 font-medium" style={{ color: '#e8e8f0', whiteSpace: 'nowrap' }}>
+                            {s.name}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              style={{
+                                color: s.score >= 8 ? '#4ade80' : s.score >= 5 ? '#facc15' : '#ef4444',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {s.score}/{s.total}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3" style={{ color: '#9898b0' }}>
+                            {s.accuracy}%
+                          </td>
+                          <td className="px-4 py-3" style={{ color: '#9898b0' }}>
+                            {formatMs(s.totalMs)}
+                          </td>
+                          <td className="px-4 py-3" style={{ color: '#9898b0' }}>
+                            {formatMs(s.avgMs)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span style={{ color: speed.color }}>{speed.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: '#686880', whiteSpace: 'nowrap' }}>
+                            {formatDate(s.completedAt)}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`${s.name}-${s.completedAt}-detail`}>
+                            <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid #2a2a3a' }}>
+                              <SubmissionDetail submission={s} />
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
