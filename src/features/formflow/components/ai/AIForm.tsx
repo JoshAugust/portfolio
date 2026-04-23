@@ -214,7 +214,7 @@ function AIFormInner() {
         <button
           type="button"
           onClick={() => setShowAllFields(true)}
-          className="text-xs text-[#6C63FF] hover:text-[#F0F2F8] transition-colors"
+          className="px-3 py-2 text-sm text-[#6C63FF] hover:text-[#F0F2F8] transition-colors rounded-md border border-[#6C63FF]/30 hover:bg-[#6C63FF]/10"
         >
           Show all fields
         </button>

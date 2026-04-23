@@ -1,4 +1,5 @@
 import { FormFlowProvider } from './context/FormFlowContext';
+import { FormFlowNav } from './components/FormFlowNav';
 import { FormFlowHero } from './components/FormFlowHero';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { FormComparison } from './components/FormComparison';
@@ -10,6 +11,7 @@ export default function FormFlowPage() {
   return (
     <FormFlowProvider>
       <div className="min-h-screen bg-[#0D0F14] text-[#F0F2F8]">
+        <FormFlowNav />
         <FormFlowHero />
         <ApiKeyBanner />
         <FormComparison />

@@ -1,3 +1,9 @@
+import { motion } from 'framer-motion';
+
+const reducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const sections = [
   {
     title: 'The Problem',
@@ -27,23 +33,59 @@ const sections = [
   },
 ];
 
+const sectionVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const bulletVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: reducedMotion ? 0 : i * 0.1,
+      duration: reducedMotion ? 0.01 : 0.35,
+      ease: 'easeOut',
+    },
+  }),
+};
+
 export function FormFlowNarrative() {
   return (
     <section
-      className="py-16 px-4 border-t border-[#2A3045]"
+      className="py-10 px-4 sm:py-16 border-t border-[#2A3045]"
       aria-label="About FormFlow"
     >
       <div className="max-w-3xl mx-auto space-y-12">
         {sections.map((section) => (
-          <article key={section.title}>
+          <motion.article
+            key={section.title}
+            variants={sectionVariants}
+            initial={reducedMotion ? false : 'hidden'}
+            whileInView="visible"
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{
+              duration: reducedMotion ? 0.01 : 0.45,
+              ease: 'easeOut',
+            }}
+          >
             <h2 className="text-xl font-bold text-[#F0F2F8] mb-4">{section.title}</h2>
             {section.body && (
-              <p className="text-[#8B92A8] leading-relaxed">{section.body}</p>
+              <p className="text-sm sm:text-base text-[#8B92A8] leading-relaxed">{section.body}</p>
             )}
             {section.bullets && (
               <ol className="space-y-4" aria-label={section.title}>
                 {section.bullets.map((bullet, i) => (
-                  <li key={bullet.label} className="flex gap-3">
+                  <motion.li
+                    key={bullet.label}
+                    custom={i}
+                    variants={bulletVariants}
+                    initial={reducedMotion ? false : 'hidden'}
+                    whileInView="visible"
+                    viewport={{ once: true, margin: '-50px' }}
+                    className="flex gap-3"
+                  >
                     <span
                       className="flex-shrink-0 w-6 h-6 rounded-full bg-[#6C63FF]/20 border border-[#6C63FF]/40 text-[#6C63FF] text-xs font-bold flex items-center justify-center mt-0.5"
                       aria-hidden="true"
@@ -51,14 +93,14 @@ export function FormFlowNarrative() {
                       {i + 1}
                     </span>
                     <div>
-                      <span className="text-[#F0F2F8] font-medium">{bullet.label}</span>
-                      <span className="text-[#8B92A8]"> — {bullet.text}</span>
+                      <span className="text-sm sm:text-base text-[#F0F2F8] font-medium">{bullet.label}</span>
+                      <span className="text-sm sm:text-base text-[#8B92A8]"> — {bullet.text}</span>
                     </div>
-                  </li>
+                  </motion.li>
                 ))}
               </ol>
             )}
-          </article>
+          </motion.article>
         ))}
       </div>
     </section>

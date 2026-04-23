@@ -15,6 +15,14 @@ function formatMs(ms: number): string {
   return `${min}m ${sec}s`;
 }
 
+const KEY_STATS = [
+  { value: '$260B', label: 'in annual abandoned ecommerce revenue' },
+  { value: '70.22%', label: 'average cart abandonment rate' },
+  { value: '78% vs 42%', label: 'first-try success: compliant vs non-compliant' },
+  { value: '95.9%', label: 'of top websites fail basic accessibility' },
+  { value: '0', label: 'competitors with AI at fill-time' },
+];
+
 export function ComparisonStats() {
   const { stats } = useFormFlow();
   const [showCompletionChip, setShowCompletionChip] = useState(false);
@@ -83,22 +91,24 @@ export function ComparisonStats() {
       </AnimatePresence>
 
       <div className="max-w-[1240px] mx-auto">
-        {/* Key stats bar */}
+        {/* Key stats bar — animate on scroll */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-          {[
-            { value: '$260B', label: 'in annual abandoned ecommerce revenue' },
-            { value: '70.22%', label: 'average cart abandonment rate' },
-            { value: '78% vs 42%', label: 'first-try success: compliant vs non-compliant' },
-            { value: '95.9%', label: 'of top websites fail basic accessibility' },
-            { value: '0', label: 'competitors with AI at fill-time' },
-          ].map((stat) => (
-            <div
+          {KEY_STATS.map((stat, i) => (
+            <motion.div
               key={stat.value}
+              initial={reducedMotion ? false : { opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{
+                duration: reducedMotion ? 0.01 : 0.4,
+                ease: 'easeOut',
+                delay: reducedMotion ? 0 : i * 0.07,
+              }}
               className="text-center p-3 rounded-lg border border-[#2A3045] bg-[#1E2333]"
             >
               <p className="text-xl font-bold text-[#6C63FF]">{stat.value}</p>
               <p className="text-xs text-[#8B92A8] mt-1 leading-tight">{stat.label}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
 

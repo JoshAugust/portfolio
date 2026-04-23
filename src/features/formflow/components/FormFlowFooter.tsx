@@ -11,7 +11,7 @@ export function FormFlowFooter() {
         <p className="text-xs text-[#545B72] max-w-xl mx-auto">
           Grounded in research from Baymard Institute, NNGroup, WebAIM, and 50+ academic sources.
         </p>
-        <div className="flex items-center justify-center gap-4 pt-1">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 pt-1">
           <a
             href="https://github.com/JoshAugust/portfolio"
             target="_blank"
@@ -20,7 +20,7 @@ export function FormFlowFooter() {
           >
             View Source on GitHub
           </a>
-          <span className="text-[#2A3045]" aria-hidden="true">·</span>
+          <span className="hidden sm:inline text-[#2A3045]" aria-hidden="true">·</span>
           <a
             href="/"
             className="text-xs text-[#8B92A8] hover:text-[#F0F2F8] transition-colors"

@@ -17,6 +17,10 @@ const FormSkeleton = () => (
 
 type ActiveTab = 'traditional' | 'ai';
 
+const reducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export function FormComparison() {
   const { stats } = useFormFlow();
   const [activeTab, setActiveTab] = useState<ActiveTab>('traditional');
@@ -28,6 +32,18 @@ export function FormComparison() {
       aria-label="Form comparison"
     >
       <ComparisonHeader stats={stats} />
+
+      {/* VS badge pulse keyframe */}
+      <style>{`
+        @keyframes vs-pulse {
+          0%, 100% {
+            box-shadow: 0 0 12px rgba(108,99,255,0.35), 0 0 24px rgba(108,99,255,0.15), inset 0 1px 0 rgba(108,99,255,0.1);
+          }
+          50% {
+            box-shadow: 0 0 20px rgba(108,99,255,0.55), 0 0 40px rgba(108,99,255,0.2), inset 0 1px 0 rgba(108,99,255,0.1);
+          }
+        }
+      `}</style>
 
       <div className="max-w-[1240px] mx-auto px-4 py-6">
         {/* ── Mobile tab switcher — visible below md ── */}
@@ -115,7 +131,7 @@ export function FormComparison() {
             </Suspense>
           </div>
 
-          {/* VS badge — with dark-mode glow */}
+          {/* VS badge — with dark-mode glow + pulse animation */}
           <div
             className="absolute left-1/2 top-12 -translate-x-1/2 z-10"
             aria-hidden="true"
@@ -123,7 +139,8 @@ export function FormComparison() {
             <span
               className="flex items-center justify-center w-9 h-9 rounded-full bg-[#0D0F14] border border-[#6C63FF]/50 text-xs font-bold text-[#6C63FF]"
               style={{
-                boxShadow: '0 0 12px rgba(108, 99, 255, 0.35), 0 0 24px rgba(108, 99, 255, 0.15), inset 0 1px 0 rgba(108, 99, 255, 0.1)',
+                boxShadow: '0 0 12px rgba(108,99,255,0.35), 0 0 24px rgba(108,99,255,0.15), inset 0 1px 0 rgba(108,99,255,0.1)',
+                animation: reducedMotion ? 'none' : 'vs-pulse 3s ease-in-out infinite',
               }}
             >
               VS

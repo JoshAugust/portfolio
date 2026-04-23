@@ -7,6 +7,10 @@ const SUBHEADLINE =
 
 const words = HEADLINE.split(' ');
 
+const reducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export function FormFlowHero() {
   const comparisonRef = useRef<HTMLDivElement | null>(null);
 
@@ -19,10 +23,22 @@ export function FormFlowHero() {
 
   return (
     <section
-      className="min-h-[min(60vh,480px)] flex flex-col items-center justify-center text-center px-6 relative overflow-hidden"
+      className="min-h-[min(50vh,400px)] sm:min-h-[min(60vh,480px)] flex flex-col items-center justify-center text-center px-6 relative overflow-hidden"
       aria-labelledby="formflow-hero-headline"
     >
-      {/* Radial gradient background */}
+      {/* Animated dot grid background */}
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle, rgba(108,99,255,0.08) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+          animation: reducedMotion ? 'none' : 'dot-drift 60s linear infinite',
+        }}
+      />
+
+      {/* Radial gradient overlay — sits on top of dots */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -32,10 +48,18 @@ export function FormFlowHero() {
         aria-hidden="true"
       />
 
+      {/* Keyframe injection */}
+      <style>{`
+        @keyframes dot-drift {
+          0%   { background-position: 0 0; }
+          100% { background-position: 0 -400px; }
+        }
+      `}</style>
+
       <div className="relative z-10 max-w-3xl mx-auto">
         <h1
           id="formflow-hero-headline"
-          className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#F0F2F8] leading-tight mb-6"
+          className="text-2xl sm:text-3xl lg:text-5xl font-bold text-[#F0F2F8] leading-tight mb-6"
         >
           {words.map((word, i) => (
             <motion.span
@@ -43,8 +67,8 @@ export function FormFlowHero() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
-                delay: i * 0.06,
-                duration: 0.3,
+                delay: reducedMotion ? 0 : i * 0.06,
+                duration: reducedMotion ? 0.01 : 0.3,
                 ease: [0.22, 1, 0.36, 1],
               }}
               className="inline-block mr-[0.25em]"
@@ -58,8 +82,8 @@ export function FormFlowHero() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{
-            delay: words.length * 0.06 + 0.2,
-            duration: 0.4,
+            delay: reducedMotion ? 0 : words.length * 0.06 + 0.2,
+            duration: reducedMotion ? 0.01 : 0.4,
             ease: 'easeOut',
           }}
           className="text-base sm:text-lg text-[#8B92A8] max-w-2xl mx-auto mb-8 leading-relaxed"
@@ -70,7 +94,7 @@ export function FormFlowHero() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: words.length * 0.06 + 0.5 }}
+          transition={{ delay: reducedMotion ? 0 : words.length * 0.06 + 0.5 }}
         >
           <button
             onClick={scrollToComparison}

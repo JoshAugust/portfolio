@@ -235,7 +235,7 @@ export default function TraditionalForm() {
         <button
           type="submit"
           className={[
-            'w-full rounded-lg px-6 py-3 font-semibold text-sm',
+            'mt-4 w-full rounded-lg px-6 py-3.5 font-semibold text-sm',
             'bg-[#6C63FF] text-white',
             'hover:bg-[#5B52E0] active:bg-[#4A42CC]',
             'transition-colors duration-150',
