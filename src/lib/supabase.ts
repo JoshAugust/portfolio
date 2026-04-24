@@ -46,7 +46,7 @@ export async function fetchAllSubmissions(): Promise<SupabaseSubmission[]> {
 
 /** Upsert a submission (insert or update by name + started_at). */
 export async function upsertSubmission(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Promise<void> {
-  const res = await fetch(restUrl(''), {
+  const res = await fetch(restUrl('?on_conflict=name,started_at'), {
     method: 'POST',
     headers: { ...HEADERS, Prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(sub),
