@@ -708,11 +708,13 @@ function Results({
   section1Records,
   section2Records,
   playerName,
+  startedAt,
   onRestart,
 }: {
   section1Records: Section1Record[];
   section2Records: Section2Record[];
   playerName: string;
+  startedAt: string;
   onRestart: () => void;
 }) {
   const score = section1Records.filter((r) => r.correct).length;
@@ -721,8 +723,20 @@ function Results({
   const accuracy = section1Records.length > 0 ? Math.round((score / section1Records.length) * 100) : 0;
   const speed = getSpeedRating(avgMs);
 
-  // Mark as completed in localStorage on mount
+  // Mark as completed in localStorage + Supabase on mount
   useEffect(() => {
+    const completedAt = new Date().toISOString();
+    const answersPayload = section1Records.map((r) => ({
+      questionId: r.questionId,
+      correct: r.correct,
+      timeMs: r.timeMs,
+    }));
+    const section2Payload = section2Records.map((r) => ({
+      questionId: r.questionId,
+      action: r.action,
+      reasoning: r.reasoning,
+    }));
+
     updateLiveSubmission(playerName, (rec) => ({
       ...rec,
       score,
@@ -730,21 +744,30 @@ function Results({
       totalMs,
       avgMs,
       accuracy,
-      completedAt: new Date().toISOString(),
+      completedAt,
       status: 'completed' as const,
       questionsAnswered: section1Records.length + section2Records.length,
       currentSection: undefined,
-      answers: section1Records.map((r) => ({
-        questionId: r.questionId,
-        correct: r.correct,
-        timeMs: r.timeMs,
-      })),
-      section2: section2Records.map((r) => ({
-        questionId: r.questionId,
-        action: r.action,
-        reasoning: r.reasoning,
-      })),
+      answers: answersPayload,
+      section2: section2Payload,
     }));
+
+    // Sync completion to Supabase DIRECTLY
+    syncToSupabase({
+      name: playerName,
+      score,
+      total: section1Records.length,
+      totalMs,
+      avgMs,
+      accuracy,
+      startedAt,
+      completedAt,
+      status: 'completed',
+      questionsAnswered: section1Records.length + section2Records.length,
+      currentSection: null,
+      answers: answersPayload,
+      section2: section2Payload,
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -935,16 +958,20 @@ function updateLiveSubmission(name: string, updater: (record: SubmissionRecord) 
     if (idx !== -1) {
       all[idx] = updater(all[idx]);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-      // Sync to Supabase (fire-and-forget)
-      syncToSupabase(all[idx]);
     }
   } catch {
-    // ignore storage errors
+    // ignore storage errors — Supabase sync happens independently
   }
 }
 
-/** Push a local submission record to Supabase (non-blocking). */
-function syncToSupabase(rec: SubmissionRecord) {
+/** Push a submission record to Supabase (non-blocking, independent of localStorage). */
+function syncToSupabase(rec: {
+  name: string; score: number; total: number; totalMs: number; avgMs: number;
+  accuracy: number; completedAt?: string | null; startedAt?: string | null;
+  status: string; questionsAnswered: number; currentSection?: string | null;
+  answers: { questionId: number; correct: boolean; timeMs: number }[];
+  section2: { questionId: number; action: string; reasoning: string }[];
+}) {
   upsertSubmission({
     name: rec.name,
     score: rec.score,
@@ -954,12 +981,12 @@ function syncToSupabase(rec: SubmissionRecord) {
     accuracy: rec.accuracy,
     completed_at: rec.completedAt || null,
     started_at: rec.startedAt || null,
-    status: rec.status,
+    status: rec.status as 'in_progress' | 'completed',
     questions_answered: rec.questionsAnswered,
     current_section: rec.currentSection ?? null,
     answers: rec.answers,
     section2: rec.section2,
-  }).catch(() => { /* silent — localStorage is the primary store */ });
+  }).catch((err) => console.warn('[supabase] sync failed:', err));
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
@@ -973,6 +1000,7 @@ export default function Poker() {
   const [section1Records, setSection1Records] = useState<Section1Record[]>([]);
   const [section2Records, setSection2Records] = useState<Section2Record[]>([]);
   const [playerName, setPlayerName] = useState('');
+  const startedAtRef = useRef('');
 
   // On first load, migrate any existing localStorage data to Supabase
   useEffect(() => {
@@ -988,6 +1016,8 @@ export default function Poker() {
     setSection2Index(0);
 
     // Write initial record to localStorage immediately
+    const startedAt = new Date().toISOString();
+    startedAtRef.current = startedAt;
     const initialRecord: SubmissionRecord = {
       name,
       score: 0,
@@ -995,7 +1025,7 @@ export default function Poker() {
       totalMs: 0,
       avgMs: 0,
       accuracy: 0,
-      startedAt: new Date().toISOString(),
+      startedAt,
       completedAt: '',
       status: 'in_progress',
       questionsAnswered: 0,
@@ -1046,16 +1076,39 @@ export default function Poker() {
       setSection1Records(updated);
 
       // Live update localStorage
+      const answersPayload = updated.map((r) => ({ questionId: r.questionId, correct: r.correct, timeMs: r.timeMs }));
+      const score = updated.filter((r) => r.correct).length;
+      const totalMs = updated.reduce((s, r) => s + r.timeMs, 0);
+      const avgMs = updated.length > 0 ? totalMs / updated.length : 0;
+      const accuracy = updated.length > 0 ? Math.round((score / updated.length) * 100) : 0;
+
       updateLiveSubmission(playerName, (rec) => ({
         ...rec,
-        answers: updated.map((r) => ({ questionId: r.questionId, correct: r.correct, timeMs: r.timeMs })),
-        score: updated.filter((r) => r.correct).length,
-        totalMs: updated.reduce((s, r) => s + r.timeMs, 0),
-        avgMs: updated.length > 0 ? updated.reduce((s, r) => s + r.timeMs, 0) / updated.length : 0,
-        accuracy: updated.length > 0 ? Math.round((updated.filter((r) => r.correct).length / updated.length) * 100) : 0,
+        answers: answersPayload,
+        score,
+        totalMs,
+        avgMs,
+        accuracy,
+        questionsAnswered: updated.length,
+        currentSection: 'section1' as const,
+      }));
+
+      // Sync to Supabase DIRECTLY (independent of localStorage)
+      syncToSupabase({
+        name: playerName,
+        score,
+        total: section1Questions.length,
+        totalMs,
+        avgMs,
+        accuracy,
+        startedAt: startedAtRef.current,
+        completedAt: null,
+        status: 'in_progress',
         questionsAnswered: updated.length,
         currentSection: 'section1',
-      }));
+        answers: answersPayload,
+        section2: [],
+      });
 
       if (section1Index + 1 >= section1Questions.length) {
         setGameState('section_transition');
@@ -1083,12 +1136,34 @@ export default function Poker() {
       setSection2Records(updated);
 
       // Live update localStorage
+      const section2Payload = updated.map((r) => ({ questionId: r.questionId, action: r.action, reasoning: r.reasoning }));
       updateLiveSubmission(playerName, (rec) => ({
         ...rec,
-        section2: updated.map((r) => ({ questionId: r.questionId, action: r.action, reasoning: r.reasoning })),
+        section2: section2Payload,
+        questionsAnswered: section1Records.length + updated.length,
+        currentSection: 'section2' as const,
+      }));
+
+      // Sync to Supabase DIRECTLY (independent of localStorage)
+      const s1Score = section1Records.filter((r) => r.correct).length;
+      const s1TotalMs = section1Records.reduce((s, r) => s + r.timeMs, 0);
+      const s1AvgMs = section1Records.length > 0 ? s1TotalMs / section1Records.length : 0;
+      const s1Accuracy = section1Records.length > 0 ? Math.round((s1Score / section1Records.length) * 100) : 0;
+      syncToSupabase({
+        name: playerName,
+        score: s1Score,
+        total: section1Questions.length,
+        totalMs: s1TotalMs,
+        avgMs: s1AvgMs,
+        accuracy: s1Accuracy,
+        startedAt: startedAtRef.current,
+        completedAt: null,
+        status: 'in_progress',
         questionsAnswered: section1Records.length + updated.length,
         currentSection: 'section2',
-      }));
+        answers: section1Records.map((r) => ({ questionId: r.questionId, correct: r.correct, timeMs: r.timeMs })),
+        section2: section2Payload,
+      });
 
       if (section2Index + 1 >= section2Questions.length) {
         setGameState('results');
@@ -1096,7 +1171,7 @@ export default function Poker() {
         setSection2Index((i) => i + 1);
       }
     },
-    [section2Index, section2Records, playerName, section1Records.length]
+    [section2Index, section2Records, playerName, section1Records]
   );
 
   const handleRestart = useCallback(() => {
@@ -1185,6 +1260,7 @@ export default function Poker() {
           section1Records={section1Records}
           section2Records={section2Records}
           playerName={playerName}
+          startedAt={startedAtRef.current}
           onRestart={handleRestart}
         />
       )}
