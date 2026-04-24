@@ -45,7 +45,7 @@ export async function fetchAllSubmissions(): Promise<SupabaseSubmission[]> {
 }
 
 /** Upsert a submission (insert or update by name + started_at). */
-export async function upsertSubmission(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Promise<void> {
+async function rawUpsert(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Promise<void> {
   const res = await fetch(restUrl('?on_conflict=name,started_at'), {
     method: 'POST',
     headers: { ...HEADERS, Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -54,6 +54,32 @@ export async function upsertSubmission(sub: Omit<SupabaseSubmission, 'id' | 'cre
   if (!res.ok) {
     const body = await res.text();
     console.error('[supabase] upsert failed:', res.status, body);
+  }
+}
+
+/**
+ * Serialized upsert queue.
+ * Only one request flies at a time. If new data arrives while a request is
+ * in flight, it's saved and sent when the current request finishes — so the
+ * latest data always wins, and we never have concurrent writes racing.
+ */
+let inFlight = false;
+let pending: Omit<SupabaseSubmission, 'id' | 'created_at'> | null = null;
+
+async function drainQueue(): Promise<void> {
+  while (pending) {
+    const next = pending;
+    pending = null;
+    await rawUpsert(next);
+  }
+  inFlight = false;
+}
+
+export function upsertSubmission(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): void {
+  pending = sub; // always keep the latest data
+  if (!inFlight) {
+    inFlight = true;
+    drainQueue().catch(() => { inFlight = false; });
   }
 }
 
@@ -128,8 +154,10 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
       return;
     }
 
-    // Push each to Supabase (upsert, so duplicates are fine)
-    await Promise.all(locals.map((l) => upsertSubmission(localToSupabase(l))));
+    // Push each to Supabase sequentially (bypasses the sync queue)
+    for (const l of locals) {
+      await rawUpsert(localToSupabase(l));
+    }
 
     localStorage.setItem(MIGRATED_KEY, '1');
     console.log(`[supabase] Migrated ${locals.length} local submission(s)`);

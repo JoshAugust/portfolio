@@ -986,7 +986,7 @@ function syncToSupabase(rec: {
     current_section: rec.currentSection ?? null,
     answers: rec.answers,
     section2: rec.section2,
-  }).catch((err) => console.warn('[supabase] sync failed:', err));
+  });
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
