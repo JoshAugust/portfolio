@@ -9,6 +9,7 @@ import {
   type RightPlayQuestion,
   type CorrectAnswer,
 } from '../data/pokerQuestions';
+import { upsertSubmission, migrateLocalStorageToSupabase } from '../lib/supabase';
 
 // ─── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mbat-poker-submissions';
@@ -934,10 +935,31 @@ function updateLiveSubmission(name: string, updater: (record: SubmissionRecord) 
     if (idx !== -1) {
       all[idx] = updater(all[idx]);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+      // Sync to Supabase (fire-and-forget)
+      syncToSupabase(all[idx]);
     }
   } catch {
     // ignore storage errors
   }
+}
+
+/** Push a local submission record to Supabase (non-blocking). */
+function syncToSupabase(rec: SubmissionRecord) {
+  upsertSubmission({
+    name: rec.name,
+    score: rec.score,
+    total: rec.total,
+    total_ms: rec.totalMs,
+    avg_ms: rec.avgMs,
+    accuracy: rec.accuracy,
+    completed_at: rec.completedAt || null,
+    started_at: rec.startedAt || null,
+    status: rec.status,
+    questions_answered: rec.questionsAnswered,
+    current_section: rec.currentSection ?? null,
+    answers: rec.answers,
+    section2: rec.section2,
+  }).catch(() => { /* silent — localStorage is the primary store */ });
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
@@ -952,6 +974,11 @@ export default function Poker() {
   const [section2Records, setSection2Records] = useState<Section2Record[]>([]);
   const [playerName, setPlayerName] = useState('');
 
+  // On first load, migrate any existing localStorage data to Supabase
+  useEffect(() => {
+    migrateLocalStorageToSupabase();
+  }, []);
+
   const handleStart = useCallback((name: string) => {
     setPlayerName(name);
     setSection1Records([]);
@@ -961,28 +988,31 @@ export default function Poker() {
     setSection2Index(0);
 
     // Write initial record to localStorage immediately
+    const initialRecord: SubmissionRecord = {
+      name,
+      score: 0,
+      total: section1Questions.length,
+      totalMs: 0,
+      avgMs: 0,
+      accuracy: 0,
+      startedAt: new Date().toISOString(),
+      completedAt: '',
+      status: 'in_progress',
+      questionsAnswered: 0,
+      currentSection: 'practice',
+      answers: [],
+      section2: [],
+    };
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const existing: SubmissionRecord[] = raw ? JSON.parse(raw) : [];
-      existing.push({
-        name,
-        score: 0,
-        total: section1Questions.length,
-        totalMs: 0,
-        avgMs: 0,
-        accuracy: 0,
-        startedAt: new Date().toISOString(),
-        completedAt: '',
-        status: 'in_progress',
-        questionsAnswered: 0,
-        currentSection: 'practice',
-        answers: [],
-        section2: [],
-      });
+      existing.push(initialRecord);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
     } catch {
       // ignore storage errors
     }
+    // Also push to Supabase
+    syncToSupabase(initialRecord);
 
     setGameState('practice');
   }, []);

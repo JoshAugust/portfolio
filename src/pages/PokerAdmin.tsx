@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Trophy, Clock, Target, Download, Trash2, Lock, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
 import { section1Questions, section2Questions } from '../data/pokerQuestions';
+import { fetchAllSubmissions, supabaseToLocal, migrateLocalStorageToSupabase } from '../lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface SubmissionRecord {
@@ -240,24 +241,35 @@ function SubmissionDetail({ submission }: { submission: SubmissionRecord }) {
 function AdminDashboard() {
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const migratedRef = useRef(false);
 
-  const loadSubmissions = useCallback(() => {
+  const loadSubmissions = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setSubmissions(sortSubmissions(JSON.parse(raw)));
-      } else {
-        setSubmissions([]);
+      // Migrate localStorage → Supabase on first admin visit
+      if (!migratedRef.current) {
+        migratedRef.current = true;
+        await migrateLocalStorageToSupabase();
       }
-    } catch {
-      setSubmissions([]);
+      const rows = await fetchAllSubmissions();
+      const local = rows.map(supabaseToLocal) as SubmissionRecord[];
+      setSubmissions(sortSubmissions(local));
+      setLoadError(null);
+    } catch (err) {
+      console.error('[admin] Failed to load from Supabase:', err);
+      setLoadError('Failed to load from server. Showing local data.');
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) setSubmissions(sortSubmissions(JSON.parse(raw)));
+      } catch { /* ignore */ }
     }
   }, []);
 
   useEffect(() => {
     loadSubmissions();
-    // Auto-refresh every 5 seconds to catch live updates
-    const interval = setInterval(loadSubmissions, 5000);
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(loadSubmissions, 10000);
     return () => clearInterval(interval);
   }, [loadSubmissions]);
 
@@ -346,6 +358,16 @@ function AdminDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Error banner */}
+        {loadError && (
+          <div
+            className="rounded-lg px-4 py-3 mb-6 font-mono text-xs"
+            style={{ background: 'rgba(250,204,21,0.1)', border: '1px solid rgba(250,204,21,0.3)', color: '#facc15' }}
+          >
+            ⚠ {loadError}
+          </div>
+        )}
 
         {/* Summary stats */}
         {submissions.length > 0 && (
