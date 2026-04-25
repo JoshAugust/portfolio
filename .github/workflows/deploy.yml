@@ -37,6 +37,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.MESSAIAH_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.MESSAIAH_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: https://joshuaaugustine.page/messaiah
         run: |
           git clone https://github.com/JoshAugust/messaiah.git /tmp/messaiah
           cd /tmp/messaiah
