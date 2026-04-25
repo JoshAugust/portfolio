@@ -42,6 +42,7 @@ jobs:
           cd /tmp/messaiah
           npm ci
           npm run build
+          cd $GITHUB_WORKSPACE
           mv /tmp/messaiah/dist dist/messaiah
 
       - name: SPA routing — copy index.html to all client-side routes
