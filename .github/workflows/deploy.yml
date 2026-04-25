@@ -33,6 +33,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build MESSAIAH sub-app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.MESSAIAH_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.MESSAIAH_SUPABASE_ANON_KEY }}
+        run: |
+          git clone https://github.com/JoshAugust/messaiah.git /tmp/messaiah
+          cd /tmp/messaiah
+          npm ci
+          npm run build
+          cp -r /tmp/messaiah/dist/ dist/messaiah/
+
       - name: SPA routing — copy index.html to all client-side routes
         run: |
           cp dist/index.html dist/404.html
