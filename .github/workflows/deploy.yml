@@ -42,8 +42,7 @@ jobs:
           cd /tmp/messaiah
           npm ci
           npm run build
-          mkdir -p dist/messaiah
-          cp -r /tmp/messaiah/dist/* dist/messaiah/
+          mv /tmp/messaiah/dist dist/messaiah
 
       - name: SPA routing — copy index.html to all client-side routes
         run: |
