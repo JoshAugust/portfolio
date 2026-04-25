@@ -1010,6 +1010,16 @@ export default function Poker() {
   const [playerName, setPlayerName] = useState('');
   const startedAtRef = useRef('');
 
+  // ── Refs that mirror state to avoid stale closures in callbacks ──
+  const section1RecordsRef = useRef<Section1Record[]>([]);
+  const section1IndexRef = useRef(0);
+  const playerNameRef = useRef('');
+
+  // Keep refs in sync with state (for use in callbacks / timeouts)
+  useEffect(() => { section1RecordsRef.current = section1Records; }, [section1Records]);
+  useEffect(() => { section1IndexRef.current = section1Index; }, [section1Index]);
+  useEffect(() => { playerNameRef.current = playerName; }, [playerName]);
+
   // On first load, migrate any existing localStorage data to Supabase
   useEffect(() => {
     migrateLocalStorageToSupabase();
@@ -1017,10 +1027,13 @@ export default function Poker() {
 
   const handleStart = useCallback((name: string) => {
     setPlayerName(name);
+    playerNameRef.current = name;
     setSection1Records([]);
+    section1RecordsRef.current = [];
     setSection2Records([]);
     setPracticeIndex(0);
     setSection1Index(0);
+    section1IndexRef.current = 0;
     setSection2Index(0);
 
     // Write initial record to localStorage immediately
@@ -1091,19 +1104,30 @@ export default function Poker() {
 
   const handleReadyStart = useCallback(() => {
     setSection1Index(0);
+    section1IndexRef.current = 0;
+    setSection1Records([]);
+    section1RecordsRef.current = [];
     setGameState('section1');
   }, []);
 
   const handleSection1Answer = useCallback(
     (answer: CorrectAnswer, correct: boolean, timeMs: number) => {
-      const q = section1Questions[section1Index];
+      // Read from REFS (not state) to guarantee fresh data regardless of React batching/closures
+      const idx = section1IndexRef.current;
+      const prevRecords = section1RecordsRef.current;
+      const name = playerNameRef.current;
+
+      const q = section1Questions[idx];
       const newRecord: Section1Record = {
         questionId: q.id,
         answer,
         correct,
         timeMs,
       };
-      const updated = [...section1Records, newRecord];
+      const updated = [...prevRecords, newRecord];
+
+      // Update both ref and state
+      section1RecordsRef.current = updated;
       setSection1Records(updated);
 
       // Live update localStorage
@@ -1113,7 +1137,7 @@ export default function Poker() {
       const avgMs = updated.length > 0 ? totalMs / updated.length : 0;
       const accuracy = updated.length > 0 ? Math.round((score / updated.length) * 100) : 0;
 
-      updateLiveSubmission(playerName, (rec) => ({
+      updateLiveSubmission(name, (rec) => ({
         ...rec,
         answers: answersPayload,
         score,
@@ -1124,9 +1148,9 @@ export default function Poker() {
         currentSection: 'section1' as const,
       }));
 
-      // Sync to Supabase DIRECTLY (independent of localStorage)
+      // Sync to Supabase
       syncToSupabase({
-        name: playerName,
+        name,
         score,
         total: section1Questions.length,
         totalMs,
@@ -1141,13 +1165,15 @@ export default function Poker() {
         section2: [],
       });
 
-      if (section1Index + 1 >= section1Questions.length) {
+      // Update index ref and state
+      if (idx + 1 >= section1Questions.length) {
         setGameState('section_transition');
       } else {
-        setSection1Index((i) => i + 1);
+        section1IndexRef.current = idx + 1;
+        setSection1Index(idx + 1);
       }
     },
-    [section1Index, section1Records, playerName]
+    [] // No deps needed — everything reads from refs
   );
 
   const handleTransitionContinue = useCallback(() => {
