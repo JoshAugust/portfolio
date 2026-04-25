@@ -9,7 +9,13 @@ import {
   type RightPlayQuestion,
   type CorrectAnswer,
 } from '../data/pokerQuestions';
-import { upsertSubmission, migrateLocalStorageToSupabase } from '../lib/supabase';
+import {
+  insertSubmission,
+  setActiveRowId,
+  syncUpdate,
+  setLastSyncData,
+  migrateLocalStorageToSupabase,
+} from '../lib/supabase';
 
 // ─── Storage key ───────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mbat-poker-submissions';
@@ -964,7 +970,7 @@ function updateLiveSubmission(name: string, updater: (record: SubmissionRecord) 
   }
 }
 
-/** Push a submission record to Supabase (non-blocking, independent of localStorage). */
+/** Build a Supabase-shaped data object and push it via the serialized sync queue. */
 function syncToSupabase(rec: {
   name: string; score: number; total: number; totalMs: number; avgMs: number;
   accuracy: number; completedAt?: string | null; startedAt?: string | null;
@@ -972,7 +978,7 @@ function syncToSupabase(rec: {
   answers: { questionId: number; correct: boolean; timeMs: number }[];
   section2: { questionId: number; action: string; reasoning: string }[];
 }) {
-  upsertSubmission({
+  const data = {
     name: rec.name,
     score: rec.score,
     total: rec.total,
@@ -986,7 +992,9 @@ function syncToSupabase(rec: {
     current_section: rec.currentSection ?? null,
     answers: rec.answers,
     section2: rec.section2,
-  });
+  };
+  setLastSyncData(data); // store for visibility-change re-sync
+  syncUpdate(data);
 }
 
 // ─── Main Poker page ───────────────────────────────────────────────────────────
@@ -1041,8 +1049,31 @@ export default function Poker() {
     } catch {
       // ignore storage errors
     }
-    // Also push to Supabase
-    syncToSupabase(initialRecord);
+
+    // INSERT into Supabase and store the row ID for all future updates
+    setActiveRowId(null); // reset any stale ID
+    insertSubmission({
+      name,
+      score: 0,
+      total: section1Questions.length,
+      total_ms: 0,
+      avg_ms: 0,
+      accuracy: 0,
+      started_at: startedAt,
+      completed_at: null,
+      status: 'in_progress',
+      questions_answered: 0,
+      current_section: 'practice',
+      answers: [],
+      section2: [],
+    }).then((id) => {
+      if (id) {
+        setActiveRowId(id);
+        console.log('[poker] Supabase row ID:', id);
+      } else {
+        console.warn('[poker] Failed to get Supabase row ID — syncs will be lost');
+      }
+    });
 
     setGameState('practice');
   }, []);

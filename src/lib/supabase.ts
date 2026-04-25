@@ -44,7 +44,111 @@ export async function fetchAllSubmissions(): Promise<SupabaseSubmission[]> {
   return res.json();
 }
 
-/** Upsert a submission (insert or update by name + started_at). */
+// ─── Row-ID-based sync (much more reliable than composite-key upsert) ─────────
+
+/**
+ * Insert a new row and return its numeric ID.
+ * This is called ONCE at quiz start. All subsequent updates use PATCH by ID.
+ */
+export async function insertSubmission(
+  sub: Omit<SupabaseSubmission, 'id' | 'created_at'>,
+): Promise<number | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(restUrl(), {
+        method: 'POST',
+        headers: { ...HEADERS, Prefer: 'return=representation' },
+        body: JSON.stringify(sub),
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].id) {
+          console.log('[supabase] Inserted row', rows[0].id);
+          return rows[0].id as number;
+        }
+      }
+      const body = await res.text();
+      console.error(`[supabase] insert attempt ${attempt + 1} failed:`, res.status, body);
+    } catch (err) {
+      console.error(`[supabase] insert attempt ${attempt + 1} network error:`, err);
+    }
+    // Exponential backoff: 500ms, 1500ms, 3500ms
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (2 ** attempt)));
+  }
+  return null;
+}
+
+/** PATCH an existing row by its numeric ID. Retries up to 3 times on failure. */
+async function patchById(
+  id: number,
+  data: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>>,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(restUrl(`?id=eq.${id}`), {
+        method: 'PATCH',
+        headers: { ...HEADERS, Prefer: 'return=minimal' },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) return true;
+      const body = await res.text();
+      console.error(`[supabase] patch attempt ${attempt + 1} failed:`, res.status, body);
+    } catch (err) {
+      console.error(`[supabase] patch attempt ${attempt + 1} network error:`, err);
+    }
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (2 ** attempt)));
+  }
+  return false;
+}
+
+/**
+ * Serialized sync queue — ensures only one request flies at a time.
+ * New data arriving while a request is in-flight overwrites the pending payload,
+ * so the latest state always wins.
+ */
+let _rowId: number | null = null;
+let _inFlight = false;
+let _pending: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>> | null = null;
+
+/** Set the Supabase row ID for the current quiz session. */
+export function setActiveRowId(id: number | null): void {
+  _rowId = id;
+}
+
+/** Get the current row ID (useful for debugging). */
+export function getActiveRowId(): number | null {
+  return _rowId;
+}
+
+async function _drainQueue(): Promise<void> {
+  while (_pending) {
+    const next = _pending;
+    _pending = null;
+    if (_rowId) {
+      await patchById(_rowId, next);
+    }
+  }
+  _inFlight = false;
+}
+
+/**
+ * Queue an update to the current quiz row.
+ * If no row ID is set yet, updates are silently dropped (the initial insert
+ * will contain the full state anyway).
+ */
+export function syncUpdate(data: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>>): void {
+  _pending = data; // always keep the latest
+  if (!_inFlight) {
+    _inFlight = true;
+    _drainQueue().catch((err) => {
+      console.error('[supabase] drain queue error:', err);
+      _inFlight = false;
+    });
+  }
+}
+
+// ─── Legacy upsert (kept for migration and backward compat) ───────────────────
+
 async function rawUpsert(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Promise<void> {
   const res = await fetch(restUrl('?on_conflict=name,started_at'), {
     method: 'POST',
@@ -57,32 +161,6 @@ async function rawUpsert(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Pr
   }
 }
 
-/**
- * Serialized upsert queue.
- * Only one request flies at a time. If new data arrives while a request is
- * in flight, it's saved and sent when the current request finishes — so the
- * latest data always wins, and we never have concurrent writes racing.
- */
-let inFlight = false;
-let pending: Omit<SupabaseSubmission, 'id' | 'created_at'> | null = null;
-
-async function drainQueue(): Promise<void> {
-  while (pending) {
-    const next = pending;
-    pending = null;
-    await rawUpsert(next);
-  }
-  inFlight = false;
-}
-
-export function upsertSubmission(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): void {
-  pending = sub; // always keep the latest data
-  if (!inFlight) {
-    inFlight = true;
-    drainQueue().catch(() => { inFlight = false; });
-  }
-}
-
 /** Check if a name already has a completed submission. */
 export async function hasCompletedSubmission(name: string): Promise<boolean> {
   const res = await fetch(
@@ -92,6 +170,25 @@ export async function hasCompletedSubmission(name: string): Promise<boolean> {
   if (!res.ok) return false;
   const rows = await res.json();
   return rows.length > 0;
+}
+
+// ─── Visibility-change re-sync ─────────────────────────────────────────────────
+
+let _lastSyncData: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>> | null = null;
+
+/** Store the latest full state for re-sync on visibility change. */
+export function setLastSyncData(data: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>>): void {
+  _lastSyncData = data;
+}
+
+/** Re-sync on tab visibility change (handles mobile backgrounding). */
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _rowId && _lastSyncData) {
+      console.log('[supabase] Tab became visible — re-syncing');
+      syncUpdate(_lastSyncData);
+    }
+  });
 }
 
 // ─── LocalStorage → Supabase migration ────────────────────────────────────────
@@ -154,7 +251,6 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
       return;
     }
 
-    // Push each to Supabase sequentially (bypasses the sync queue)
     for (const l of locals) {
       await rawUpsert(localToSupabase(l));
     }
