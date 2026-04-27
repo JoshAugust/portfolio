@@ -50,7 +50,7 @@ jobs:
         run: |
           git clone https://github.com/JoshAugust/unmapped-global-hackathon.git /tmp/unmapped
           cd /tmp/unmapped
-          npm ci
+          npm install --no-fund --no-audit
           BUILD_TARGET=gh-pages npm run build:gh-pages || (npx vite build && node scripts/generate-spa-index.mjs)
           cd $GITHUB_WORKSPACE
           mv /tmp/unmapped/dist/client dist/unmapped
