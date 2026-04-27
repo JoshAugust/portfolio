@@ -32,9 +32,9 @@ export const practiceQuestions: WhichHandWinsQuestion[] = [
     id: 101,
     type: 'which_hand_wins',
     title: 'Practice — Pair vs. Two Pair',
-    scenario: 'The board shows: 3♠ 7♦ T♣ K♥ 2♦',
+    scenario: 'The board shows: K♥ 2♦ 7♦ T♣ 3♠',
     players: {
-      player_a: 'K♠ 9♣',
+      player_a: '9♣ K♠',
       player_b: 'T♠ 7♣',
     },
     correctAnswer: 'player_b',
@@ -50,9 +50,9 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 1,
     type: 'which_hand_wins',
     title: 'Full House vs. Full House',
-    scenario: 'The board shows: 8♠ 8♦ 4♣ 4♥ 2♠',
+    scenario: 'The board shows: 4♣ 2♠ 8♦ 4♥ 8♠',
     players: {
-      player_a: 'A♣ 4♦',
+      player_a: '4♦ A♣',
       player_b: 'K♠ 8♥',
     },
     correctAnswer: 'player_b',
@@ -64,10 +64,10 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 2,
     type: 'which_hand_wins',
     title: 'Full House Showdown',
-    scenario: 'The board shows: A♠ A♦ 7♥ 6♦ 2♣',
+    scenario: 'The board shows: 6♦ A♠ 2♣ 7♥ A♦',
     players: {
       player_a: '6♠ 6♣',
-      player_b: 'A♥ 2♠',
+      player_b: '2♠ A♥',
     },
     correctAnswer: 'player_b',
     explanation:
@@ -78,9 +78,9 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 3,
     type: 'which_hand_wins',
     title: 'The Board Plays',
-    scenario: 'The board shows: K♥ T♠ A♠ J♦ Q♣',
+    scenario: 'The board shows: A♠ Q♣ K♥ J♦ T♠',
     players: {
-      player_a: 'A♦ J♣',
+      player_a: 'J♣ A♦',
       player_b: 'Q♥ Q♦',
     },
     correctAnswer: 'split',
@@ -92,10 +92,10 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 4,
     type: 'which_hand_wins',
     title: 'Flush Over Flush',
-    scenario: 'The board shows: 2♥ 7♥ 9♥ J♣ K♥',
+    scenario: 'The board shows: K♥ 9♥ J♣ 2♥ 7♥',
     players: {
       player_a: 'A♥ 3♠',
-      player_b: 'Q♥ T♥',
+      player_b: 'T♥ Q♥',
     },
     correctAnswer: 'player_a',
     explanation:
@@ -106,10 +106,10 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 8,
     type: 'which_hand_wins',
     title: 'Two Pair Kicker Battle',
-    scenario: 'The board shows: K♠ 9♦ 5♣ 3♥ 2♠',
+    scenario: 'The board shows: 3♥ K♠ 2♠ 9♦ 5♣',
     players: {
       player_a: 'K♦ T♣',
-      player_b: 'K♥ J♠',
+      player_b: 'J♠ K♥',
     },
     correctAnswer: 'player_b',
     explanation:
@@ -120,9 +120,9 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 10,
     type: 'which_hand_wins',
     title: 'The Hidden Straight',
-    scenario: 'The board shows: 8♥ K♦ 5♦ 7♠ 6♣',
+    scenario: 'The board shows: 5♦ 8♥ 6♣ K♦ 7♠',
     players: {
-      player_a: 'T♠ T♥',
+      player_a: 'T♥ T♠',
       player_b: '4♠ 4♣',
     },
     correctAnswer: 'player_b',
@@ -134,10 +134,10 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 11,
     type: 'which_hand_wins',
     title: 'The Kicker Trap',
-    scenario: 'The board shows: K♠ Q♦ A♣ T♥ 3♠',
+    scenario: 'The board shows: T♥ A♣ 3♠ K♠ Q♦',
     players: {
       player_a: 'K♦ 5♣',
-      player_b: 'K♥ 9♦',
+      player_b: '9♦ K♥',
     },
     correctAnswer: 'split',
     explanation:
@@ -148,9 +148,9 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 12,
     type: 'which_hand_wins',
     title: 'The Nut Straight',
-    scenario: 'The board shows: 7♥ K♠ 4♠ 6♣ 5♦',
+    scenario: 'The board shows: 4♠ 5♦ K♠ 7♥ 6♣',
     players: {
-      player_a: '8♣ 9♠',
+      player_a: '9♠ 8♣',
       player_b: '8♠ 7♣',
     },
     correctAnswer: 'player_a',
@@ -162,10 +162,10 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 13,
     type: 'which_hand_wins',
     title: 'The Hidden Flush',
-    scenario: 'The board shows: A♥ T♣ 5♣ 3♣ 2♠',
+    scenario: 'The board shows: 5♣ 2♠ A♥ 3♣ T♣',
     players: {
       player_a: 'A♠ K♦',
-      player_b: 'A♣ Q♣',
+      player_b: 'Q♣ A♣',
     },
     correctAnswer: 'player_b',
     explanation:
@@ -176,9 +176,9 @@ export const section1Questions: WhichHandWinsQuestion[] = [
     id: 14,
     type: 'which_hand_wins',
     title: 'Counterfeit Two Pair',
-    scenario: 'The board shows: K♠ K♦ Q♣ Q♥ J♠',
+    scenario: 'The board shows: Q♥ K♦ J♠ K♠ Q♣',
     players: {
-      player_a: 'A♣ 2♦',
+      player_a: '2♦ A♣',
       player_b: 'J♥ 3♠',
     },
     correctAnswer: 'player_a',
