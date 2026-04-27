@@ -78,6 +78,21 @@ export async function insertSubmission(
   return null;
 }
 
+/** Fetch with a timeout — prevents hanging forever if the browser suspends the request. */
+function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs = 8000): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`Request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    fetch(url, { ...opts, signal: controller.signal })
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
 /** PATCH an existing row by its numeric ID. Retries up to 3 times on failure. */
 async function patchById(
   id: number,
@@ -85,7 +100,7 @@ async function patchById(
 ): Promise<boolean> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(restUrl(`?id=eq.${id}`), {
+      const res = await fetchWithTimeout(restUrl(`?id=eq.${id}`), {
         method: 'PATCH',
         headers: { ...HEADERS, Prefer: 'return=minimal' },
         body: JSON.stringify(data),
@@ -94,7 +109,7 @@ async function patchById(
       const body = await res.text();
       console.error(`[supabase] patch attempt ${attempt + 1} failed:`, res.status, body);
     } catch (err) {
-      console.error(`[supabase] patch attempt ${attempt + 1} network error:`, err);
+      console.error(`[supabase] patch attempt ${attempt + 1} error:`, err);
     }
     if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (2 ** attempt)));
   }
@@ -105,14 +120,26 @@ async function patchById(
  * Serialized sync queue — ensures only one request flies at a time.
  * New data arriving while a request is in-flight overwrites the pending payload,
  * so the latest state always wins.
+ *
+ * Safety: if _inFlight gets stuck (e.g. browser suspends a fetch that never resolves),
+ * a 30-second watchdog auto-resets it, and visibility-change also forces a reset.
  */
 let _rowId: number | null = null;
 let _inFlight = false;
 let _pending: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>> | null = null;
+let _lastDrainStart = 0;
 
 /** Set the Supabase row ID for the current quiz session. */
 export function setActiveRowId(id: number | null): void {
   _rowId = id;
+  // If we just got a row ID and there's pending data, kick the queue
+  if (id && _pending && !_inFlight) {
+    _inFlight = true;
+    _drainQueue().catch((err) => {
+      console.error('[supabase] drain queue error:', err);
+      _inFlight = false;
+    });
+  }
 }
 
 /** Get the current row ID (useful for debugging). */
@@ -120,12 +147,34 @@ export function getActiveRowId(): number | null {
   return _rowId;
 }
 
+/** Force-reset the queue if it's stuck. Called on visibility change and by the watchdog. */
+function _unstickQueue(): void {
+  if (_inFlight && Date.now() - _lastDrainStart > 15000) {
+    console.warn('[supabase] Queue appears stuck — resetting _inFlight');
+    _inFlight = false;
+  }
+  // If there's pending data and we're not in-flight, kick the drain
+  if (_pending && !_inFlight && _rowId) {
+    _inFlight = true;
+    _drainQueue().catch((err) => {
+      console.error('[supabase] drain queue error:', err);
+      _inFlight = false;
+    });
+  }
+}
+
 async function _drainQueue(): Promise<void> {
+  _lastDrainStart = Date.now();
   while (_pending) {
     const next = _pending;
     _pending = null;
     if (_rowId) {
       await patchById(_rowId, next);
+    } else {
+      // No row ID yet — put it back so setActiveRowId can pick it up
+      console.warn('[supabase] No row ID — deferring sync');
+      _pending = next;
+      break;
     }
   }
   _inFlight = false;
@@ -133,17 +182,19 @@ async function _drainQueue(): Promise<void> {
 
 /**
  * Queue an update to the current quiz row.
- * If no row ID is set yet, updates are silently dropped (the initial insert
- * will contain the full state anyway).
+ * If no row ID is set yet, data is buffered until the ID arrives.
  */
 export function syncUpdate(data: Partial<Omit<SupabaseSubmission, 'id' | 'created_at'>>): void {
   _pending = data; // always keep the latest
   if (!_inFlight) {
-    _inFlight = true;
-    _drainQueue().catch((err) => {
-      console.error('[supabase] drain queue error:', err);
-      _inFlight = false;
-    });
+    if (_rowId) {
+      _inFlight = true;
+      _drainQueue().catch((err) => {
+        console.error('[supabase] drain queue error:', err);
+        _inFlight = false;
+      });
+    }
+    // If no _rowId yet, data stays in _pending — setActiveRowId will kick the drain
   }
 }
 
@@ -184,9 +235,41 @@ export function setLastSyncData(data: Partial<Omit<SupabaseSubmission, 'id' | 'c
 /** Re-sync on tab visibility change (handles mobile backgrounding). */
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && _rowId && _lastSyncData) {
-      console.log('[supabase] Tab became visible — re-syncing');
-      syncUpdate(_lastSyncData);
+    if (document.visibilityState === 'visible') {
+      console.log('[supabase] Tab became visible — checking queue health');
+      // Force-unstick the queue if a request was in-flight when the tab was suspended
+      _unstickQueue();
+      // Re-sync latest data
+      if (_rowId && _lastSyncData) {
+        syncUpdate(_lastSyncData);
+      }
+    }
+  });
+
+  // Watchdog: check every 10s if the queue is stuck
+  setInterval(() => {
+    if (_inFlight && Date.now() - _lastDrainStart > 15000) {
+      _unstickQueue();
+    }
+  }, 10000);
+
+  // Last-resort: use sendBeacon on page unload to flush pending data
+  window.addEventListener('pagehide', () => {
+    const data = _pending || _lastSyncData;
+    if (_rowId && data) {
+      try {
+        const url = restUrl(`?id=eq.${_rowId}`);
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        // sendBeacon can't set custom headers, so use fetch keepalive instead
+        fetch(url, {
+          method: 'PATCH',
+          headers: { ...HEADERS, Prefer: 'return=minimal' },
+          body: JSON.stringify(data),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // best-effort only
+      }
     }
   });
 }
