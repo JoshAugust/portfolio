@@ -37,6 +37,18 @@ function restUrl(query = ''): string {
   return `${SUPABASE_URL}/rest/v1/${TABLE}${query}`;
 }
 
+/** Ensure all integer columns are actually integers before sending to Supabase. */
+function sanitizeInts<T extends Record<string, unknown>>(data: T): T {
+  const intFields = ['score', 'total', 'total_ms', 'avg_ms', 'accuracy', 'questions_answered'] as const;
+  const out = { ...data };
+  for (const field of intFields) {
+    if (field in out && typeof out[field] === 'number') {
+      (out as Record<string, unknown>)[field] = Math.round(out[field] as number);
+    }
+  }
+  return out;
+}
+
 /** Fetch all submissions (for admin view). */
 export async function fetchAllSubmissions(): Promise<SupabaseSubmission[]> {
   const res = await fetch(restUrl('?select=*&order=created_at.desc'), { headers: HEADERS });
@@ -58,7 +70,7 @@ export async function insertSubmission(
       const res = await fetch(restUrl(), {
         method: 'POST',
         headers: { ...HEADERS, Prefer: 'return=representation' },
-        body: JSON.stringify(sub),
+        body: JSON.stringify(sanitizeInts(sub)),
       });
       if (res.ok) {
         const rows = await res.json();
@@ -103,7 +115,7 @@ async function patchById(
       const res = await fetchWithTimeout(restUrl(`?id=eq.${id}`), {
         method: 'PATCH',
         headers: { ...HEADERS, Prefer: 'return=minimal' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(sanitizeInts(data)),
       });
       if (res.ok) return true;
       const body = await res.text();
@@ -204,7 +216,7 @@ async function rawUpsert(sub: Omit<SupabaseSubmission, 'id' | 'created_at'>): Pr
   const res = await fetch(restUrl('?on_conflict=name,started_at'), {
     method: 'POST',
     headers: { ...HEADERS, Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(sub),
+    body: JSON.stringify(sanitizeInts(sub)),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -264,7 +276,7 @@ if (typeof document !== 'undefined') {
         fetch(url, {
           method: 'PATCH',
           headers: { ...HEADERS, Prefer: 'return=minimal' },
-          body: JSON.stringify(data),
+          body: JSON.stringify(sanitizeInts(data)),
           keepalive: true,
         }).catch(() => {});
       } catch {
