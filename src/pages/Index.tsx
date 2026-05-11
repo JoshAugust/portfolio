@@ -108,12 +108,12 @@ const Highlight = ({ children, isRevealed }: HighlightProps) => {
 
 const NavBar = () => (
   <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-5 md:px-12">
-    <div className="flex items-center gap-8 text-[11px] tracking-[0.2em] uppercase text-muted-foreground font-mono">
-      <a href="#" className="text-foreground transition-colors">Home</a>
+    <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8 text-[11px] tracking-[0.2em] uppercase text-muted-foreground font-mono">
       <Link to="/poker" className="hover:text-foreground transition-colors">Poker</Link>
       <Link to="/prospector" className="hover:text-foreground transition-colors">Prospector</Link>
       <Link to="/finchex" className="hover:text-foreground transition-colors">Finchex</Link>
       <Link to="/music" className="hover:text-foreground transition-colors">Music</Link>
+      <a href="/messaiah" className="text-cyan-500 hover:text-cyan-400 transition-colors font-bold whitespace-nowrap">Messaiah CRM</a>
     </div>
     <div className="flex items-center gap-2">
       <Link
