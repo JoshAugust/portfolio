@@ -42,10 +42,9 @@ export interface ScrapedLinkedInProfile {
     }>;
 }
 
-// Using a popular, stable LinkedIn profile scraper on Apify.
-// The default actor is omkar_shirude/linkedin-profile-scraper (or microworlds/linkedin-profile-scraper).
-// We'll use microworlds/linkedin-profile-scraper as it's very reliable.
-const ACTOR_ID = 'microworlds/linkedin-profile-scraper';
+// LinkedIn profile scraper on Apify (johnvc/linkedin-profile-api).
+// REST paths take the owner~name form.
+const ACTOR_ID = 'johnvc~linkedin-profile-api';
 
 export const scrapeLinkedInProfile = async (linkedinUrl: string, onProgress?: (status: string) => void): Promise<ScrapedLinkedInProfile | null> => {
     const key = getApifyKey();
@@ -63,7 +62,7 @@ export const scrapeLinkedInProfile = async (linkedinUrl: string, onProgress?: (s
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                urls: [linkedinUrl]
+                profileUrls: [linkedinUrl]
             })
         });
 
@@ -110,7 +109,25 @@ export const scrapeLinkedInProfile = async (linkedinUrl: string, onProgress?: (s
         const datasetItems = await datasetResponse.json();
         
         if (datasetItems && datasetItems.length > 0) {
-            return datasetItems[0] as ScrapedLinkedInProfile;
+            const item = datasetItems[0];
+            if (item.error_message) {
+                throw new Error(item.error_message);
+            }
+            return {
+                firstName: item.firstName,
+                lastName: item.lastName,
+                fullName: item.name,
+                headline: item.headline,
+                summary: item.summary || item.about,
+                location: item.location,
+                profilePicUrl: item.avatar,
+                experiences: item.experience?.map((exp: any) => ({
+                    title: exp.title,
+                    company: exp.company,
+                    duration: [exp.start_date, exp.end_date].filter(Boolean).join(' - '),
+                    location: exp.location
+                }))
+            };
         }
 
         return null;
