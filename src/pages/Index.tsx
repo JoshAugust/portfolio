@@ -113,7 +113,6 @@ const NavBar = () => (
       <Link to="/prospector" className="hover:text-foreground transition-colors">Prospector</Link>
       <Link to="/finchex" className="hover:text-foreground transition-colors">Finchex</Link>
       <Link to="/music" className="hover:text-foreground transition-colors">Music</Link>
-      <a href="/messaiah" className="text-cyan-500 hover:text-cyan-400 transition-colors font-bold whitespace-nowrap">Messaiah CRM</a>
     </div>
     <div className="flex items-center gap-2">
       <Link
