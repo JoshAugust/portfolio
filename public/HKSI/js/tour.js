@@ -3,15 +3,16 @@
 const App = window.App, $ = App.$;
 const STEPS = [
   { title:'Welcome', text:'This tool teaches the HKSI Paper 1 guide fact by fact and tests you on it. Every fact and answer cites the exact page of the Study Guide. This tour takes about a minute.' },
-  { sel:'#navlinks', title:'Your menu', text:'Everything is one click away from here. The coral number on Weak spots is how many questions you currently need to revisit.' },
-  { hash:'#/learn', sel:'#navlinks a[href="#/learn"]', title:'Learn', text:'The nine guide topics, broken into short facts with a page link. Tick a fact when you know it. Facts and notes that come from unofficial sites carry a clear label.' },
-  { hash:'#/figures', sel:'#fgcover', fallback:'#navlinks a[href="#/figures"]', title:'Key figures', text:'Every number worth knowing: thresholds, penalties, time limits and amounts. Use "Cover answers" to test yourself, then tick the ones you know.' },
-  { hash:'#/practice', sel:'#navlinks a[href="#/practice"]', title:'Practice', text:'Questions from the 2006 paper, the official 2023 sample and new ones written from the guide. After each answer you see why it is right, why the others are wrong, and the page to read.' },
-  { hash:'#/mock', sel:'#navlinks a[href="#/mock"]', title:'Mock exam', text:'60 questions, 90 minutes, weighted like the real paper, with a 70% pass mark. If you close the tab part-way it is saved and you can resume.' },
-  { hash:'#/mistakes', sel:'#navlinks a[href="#/mistakes"]', title:'Weak spots', text:'Every question you get wrong is remembered here. The tool ranks the topics to revisit, builds a new quiz around your mistakes, and drills the related facts.' },
-  { hash:'#/cards', sel:'#navlinks a[href="#/cards"]', title:'Fact drill', text:'Flashcards with the key numbers and terms blanked out. Cards you miss come back sooner, using spaced repetition.' },
-  { hash:'#/history', sel:'#view h1', title:'Your results are kept', text:'Every finished quiz and mock exam is saved on this device, with a score history. Refreshing or closing the tab loses nothing. Clearing browser data, private windows or another device would, so download a backup from Sources now and then.' },
-  { hash:'#/sources', sel:'#navlinks a[href="#/sources"]', title:'Sources and trust', text:'Shows where everything comes from and how far to trust it. Each question carries a label: verified in the guide, best-supported, or unofficial.' },
+  { sel:'#navlinks', title:'Five places', text:'Learn the guide, Test yourself, Review what you got wrong, plus Home and More. Each one has its own sections along the top of the page.' },
+  { hash:'#/learn', sel:'#navlinks a[href="#/learn"]', title:'Learn', text:'The nine guide topics, broken into short facts with a page link. Tick a fact when you know it. Notes that come from unofficial sites carry a clear label.' },
+  { hash:'#/figures', sel:'#fgcover', fallback:'.subnav a[href="#/figures"]', title:'Key figures', text:'Every number worth knowing: thresholds, penalties, time limits and amounts. Use "Cover answers" to test yourself, then tick the ones you know.' },
+  { hash:'#/practice', sel:'#navlinks a[href="#/practice"]', title:'Test: quizzes', text:'Questions from the 2006 paper, the official 2023 sample and new ones written from the guide. After each answer you see why it is right, why the others are wrong, and the page to read.' },
+  { hash:'#/mock', sel:'.subnav a[href="#/mock"]', title:'Test: exams', text:'Full 60-question, 90-minute exams weighted like the real paper, with a 70% pass mark. If you close the tab part-way it is saved and you can resume.' },
+  { hash:'#/cards', sel:'#navlinks a[href="#/cards"]', title:'Review: drill', text:'Flashcards with the key numbers and terms blanked out. Cards you miss come back sooner, using spaced repetition.' },
+  { hash:'#/mistakes', sel:'.subnav a[href="#/mistakes"]', title:'Review: weak spots', text:'Every question you get wrong is remembered. The tool ranks the topics to revisit and builds a new quiz around your mistakes.' },
+  { hash:'#/plan', sel:'.subnav a[href="#/plan"]', title:'Review: revision plan', text:'Highlight any sentence anywhere (a fact, a figure, an explanation) and tap "Add to revision plan". It is saved with its topic, guide page and where you found it, ready to revise later.' },
+  { hash:'#/history', sel:'.subnav a[href="#/history"]', title:'Review: results', text:'Every finished quiz and exam is saved on this device with a score history. Refreshing or closing the tab loses nothing. Clearing browser data, private windows or another device would, so download a backup from More now and then.' },
+  { hash:'#/sources', sel:'#navlinks a[href="#/sources"]', title:'More: sources and backup', text:'Where everything comes from and how far to trust it, plus your backup and import. Each question carries a label: verified in the guide, best-supported, or unofficial.' },
   { sel:'#themebtn', title:'Light or dark', text:'Switch the look any time. You can restart this tour from the "Take the tour" button.' }
 ];
 let i = -1, els = null;

@@ -115,7 +115,7 @@ App.submitRun = function(){
   if (r.kind === 'mock') r.ids.forEach(id => { if (r.ans[id]) App.recordAnswer(App.qById(id), r.ans[id], 'mock'); });
   const s = App.load();
   const score = r.ids.filter(id => r.ans[id] === App.qById(id).ans).length;
-  s.sessions.push({ kind:r.kind, ts:r.end, n:r.ids.length, score, answered:Object.keys(r.ans).length, ms:r.end - r.start, id:r.end });
+  s.sessions.push({ kind:r.kind, ts:r.end, n:r.ids.length, score, answered:Object.keys(r.ans).length, ms:r.end - r.start, id:r.end, exam:r.note && /^EX\d/.test(r.note) ? r.note : '' });
   s.runs = s.runs || []; s.runs.push({ id:r.end, kind:r.kind, ids:r.ids, ans:r.ans, flags:r.flags, checked:r.checked, start:r.start, end:r.end, note:r.note }); if (s.runs.length > 15) s.runs.shift();
   s.activeRun = null;
   if (s.sessions.length > 300) s.sessions.shift();
@@ -163,11 +163,11 @@ App.renderCards = function(view){
   const body = c.kind === 'kc'
     ? `<div class="big">${esc(c.q)}</div>${r.revealed ? `<div class="hr"></div><div class="md">${App.md(c.a)}</div>` : ''}`
     : `<div class="big">${c.html}</div>${r.revealed ? `${c.blanks ? '' : ''}${c.quote ? `<div class="quote">“${esc(c.quote)}”</div>` : ''}${c.trap ? `<div class="trap"><b>Trap:</b> ${esc(c.trap)}</div>` : ''}` : (c.blanks ? '' : '<div class="muted small">Try to recall the rule before you reveal it.</div>')}`;
-  view.innerHTML = `<div class="qwrap"><div class="row" style="margin:8px 0 16px"><b>Fact drill</b><span class="muted small">Card ${r.i+1} of ${r.ids.length}</span><span class="sp"></span><a class="btn sm ghost" href="#/learn">End</a></div>
+  view.innerHTML = `<div class="qwrap"><div class="row" style="margin:8px 0 16px"><b>Drill</b><span class="muted small">Card ${r.i+1} of ${r.ids.length}</span><span class="sp"></span><a class="btn sm ghost" href="#/learn">End</a></div>
     <div class="bar" style="margin-bottom:16px"><i style="width:${App.pct(r.i, r.ids.length)}%"></i></div>
     <div class="card flash"><div class="row small">${App.chip('Topic ' + c.topic, 'acc')} <span class="muted">${esc(c.head)}</span></div>${c.kind === 'fact' && !c.blanks && !r.revealed ? `<div class="big" style="color:var(--muted)">${esc(c.head)}</div><div class="muted">What does the guide say here?</div>` : body}
       ${r.revealed && c.kind === 'fact' && !c.blanks ? `<div class="big">${esc(c.fact)}</div>${c.quote ? `<div class="quote">“${esc(c.quote)}”</div>` : ''}${c.trap ? `<div class="trap"><b>Trap:</b> ${esc(c.trap)}</div>` : ''}` : ''}
-      ${r.revealed ? `<div class="row small"><span class="muted">Source:</span><a class="cite" data-page="${c.page}" href="#">p.${esc(App.pageLabel(c.page))}</a></div>` : ''}
+      ${r.revealed && c.page ? `<div class="row small"><span class="muted">Source:</span><a class="cite" data-page="${c.page}" href="#">p.${esc(App.pageLabel(c.page))}</a></div>` : ''}
     </div>
     <div class="row" style="margin-top:14px;justify-content:center">${r.revealed ? `<button class="btn" id="miss" style="min-width:130px">✗ Missed it</button><button class="btn primary" id="got" style="min-width:130px">✓ Got it</button>` : `<button class="btn primary" id="reveal" style="min-width:200px">Reveal</button>`}</div>
     <div class="muted tiny" style="text-align:center;margin-top:8px">Space to reveal · 1 = missed · 2 = got it</div></div>`;

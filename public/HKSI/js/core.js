@@ -9,7 +9,7 @@ App.$ = $; App.$$ = $$; App.esc = esc;
 /* ---------- storage (localStorage with in-memory fallback) ---------- */
 const KEY = 'hksi.paper1.v1';
 let mem = null;
-function blank(){ return { attempts:{}, cards:{}, learned:{}, log:[], sessions:[], runs:[], activeRun:null, lastExport:0, settings:{ showUnverified:false } }; }
+function blank(){ return { attempts:{}, cards:{}, learned:{}, log:[], sessions:[], runs:[], plan:[], activeRun:null, lastExport:0, settings:{ showUnverified:false } }; }
 App.load = function(){
   if (mem) return mem;
   try { const raw = localStorage.getItem(KEY); mem = raw ? Object.assign(blank(), JSON.parse(raw)) : blank(); }

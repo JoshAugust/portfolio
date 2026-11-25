@@ -42,7 +42,7 @@ V.history = function(view){
   view.innerHTML = `<h1>Your <em>results</em></h1><p class="lead">Every finished quiz and mock exam is saved here, along with the questions you answered. Nothing is lost when you close the tab.</p>
   ${list.length ? `<div class="card" style="margin:18px 0">${spark}</div>
   <div class="card scroll-x" style="padding:8px 18px"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Score</th><th></th><th>Time</th><th></th></tr></thead><tbody>${list.map(x => { const p = App.pct(x.score, x.n); const tm = Math.round((x.ms || 0) / 60000);
-    return `<tr><td>${new Date(x.ts).toLocaleString([], { dateStyle:'medium', timeStyle:'short' })}</td><td>${kl[x.kind] || x.kind}</td><td><b>${x.score} / ${x.n}</b> · ${p}%</td><td>${x.kind === 'mock' ? `<span class="chip ${p >= 70 ? 'good' : 'bad'}">${p >= 70 ? 'Pass' : 'Below 70%'}</span>` : ''}</td><td>${tm || '<1'} min</td><td>${saved.has(x.id) ? `<button class="btn sm" data-open="${x.id}">Review</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+    return `<tr><td>${new Date(x.ts).toLocaleString([], { dateStyle:'medium', timeStyle:'short' })}</td><td>${((D.exams || []).find(e => e.id === x.exam) || {}).name || kl[x.kind] || x.kind}</td><td><b>${x.score} / ${x.n}</b> · ${p}%</td><td>${x.kind === 'mock' ? `<span class="chip ${p >= 70 ? 'good' : 'bad'}">${p >= 70 ? 'Pass' : 'Below 70%'}</span>` : ''}</td><td>${tm || '<1'} min</td><td>${saved.has(x.id) ? `<button class="btn sm" data-open="${x.id}">Review</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
   <p class="muted small" style="margin-top:12px">Answers to individual questions also feed your <a href="#/mistakes">weak spots</a>. The last 15 sessions can be reopened for review.</p>`
   : `<div class="card empty">No finished sessions yet. <a href="#/practice">Start a quiz</a> and your results will appear here.</div>`}
   <div class="card flat" style="margin-top:18px"><b class="small">Where is this saved?</b> <span class="muted small">In this browser on this device, and it survives refreshing and closing the tab. It is lost only if you clear your browser's site data, use a private window, or switch browser or device. <a href="#/sources">Download a backup</a> to keep a copy or move it elsewhere.</span></div>`;
@@ -154,7 +154,7 @@ V.practice = function(view){
   const draw = () => {
     const pool = App.pool({ topics:[...sel.topics], sources:[...sel.sources] });
     const unseen = pool.filter(q => !s.attempts[q.id]).length;
-    view.innerHTML = `<h1>Practice</h1><p class="lead">Answer, check, and read exactly why each option stands or falls. Wrong answers are saved so the tool can show you what to revise.</p>
+    view.innerHTML = `<h1>Quizzes</h1><p class="lead">Answer, check, and read exactly why each option stands or falls. Wrong answers are saved so the tool can show you what to revise.</p>
     <div class="card" style="margin-top:18px">
       <div class="field"><span class="lbl">Topics <span class="muted">(none selected = all)</span></span><div class="pills">${D.topics.map(t => `<button class="pill ${sel.topics.has(t.id)?'on':''}" data-t="${t.id}">${t.id}. ${esc(t.short)}</button>`).join('')}</div></div>
       <div class="field"><span class="lbl">Question sources</span><div class="pills">${Object.entries(SRC).map(([k,l]) => `<button class="pill ${sel.sources.has(k)?'on':''}" data-s="${k}">${l}</button>`).join('')}</div></div>
@@ -163,10 +163,7 @@ V.practice = function(view){
       <label class="row small" style="gap:8px"><input type="checkbox" id="unv" ${s.settings.showUnverified?'checked':''}> Include unverified questions (outdated or not covered by the current guide)</label>
       <div class="hr"></div><div class="row"><button class="btn primary" id="go" ${pool.length?'':'disabled'}>Start ${Math.min(sel.len || pool.length, pool.length)} questions</button><span class="muted small">${pool.length} available · ${unseen} not yet attempted</span></div>
     </div>
-    <h2 style="margin-top:30px">Other ways to study</h2>
-    <div class="grid g3"><a class="card topic-card" href="#/cards"><h3 style="margin:0">Fact drill</h3><p class="muted small">Fill-in-the-blank cards that hide numbers and key words from the guide. Best for thresholds and “must / should / may”.</p></a>
-    <a class="card topic-card" href="#/mock"><h3 style="margin:0">Mock exam</h3><p class="muted small">60 questions, 90 minutes, weighted like the real paper. Only official, guide-backed questions.</p></a>
-    <a class="card topic-card" href="#/mistakes"><h3 style="margin:0">Weak spots</h3><p class="muted small">Your missed questions, the topics to re-read, and a quiz built around them.</p></a></div>`;
+`;
     view.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = +b.dataset.t; sel.topics.has(t) ? sel.topics.delete(t) : sel.topics.add(t); draw(); });
     view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { const k = b.dataset.s; sel.sources.has(k) ? sel.sources.delete(k) : sel.sources.add(k); draw(); });
     view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { sel.mode = b.dataset.m; draw(); });
@@ -184,13 +181,19 @@ V.practice = function(view){
 
 /* ---------- Mock setup ---------- */
 V.mock = function(view){
-  const m = App.buildMock(60); const mins = Math.round(90 * m.size / 60);
-  view.innerHTML = `<h1>Mock exam</h1><p class="lead">The real paper has 60 multiple-choice questions in 90 minutes. You need 70% (42 correct) to pass. This mock mirrors the topic weightings and uses only official questions that the current guide supports.</p>
-  <div class="grid g3" style="margin:18px 0"><div class="card stat"><b>${m.size}</b><span>questions</span></div><div class="card stat"><b>${mins} min</b><span>time limit</span></div><div class="card stat"><b>${Math.ceil(m.size*.7)}</b><span>correct to pass (70%)</span></div></div>
-  ${m.available < 60 ? `<div class="banner" style="margin-bottom:14px">The verified official bank has only ${m.available} questions, so this mock is shorter than the real exam and some questions will repeat across mocks. Practise topics separately to fill the gaps.</div>` : ''}
-  <div class="card"><ul style="margin:0 0 12px;padding-left:1.2em"><li>No feedback until you submit. You can flag questions and jump around.</li><li>The timer keeps running if you leave this page open.</li><li>Your wrong answers feed the Weak spots page.</li></ul><button class="btn primary" id="go">Start mock exam</button></div>
-  <p class="muted small" style="margin-top:14px">Weights used: topic 4 is the heaviest (20–27%), then 5 (15–22%), 6 (13–20%), 3 (10–17%).</p>`;
-  $('#go').onclick = () => App.startRun('mock', m.ids, { limitMs: mins * 60e3 });
+  const m = App.buildMock(60); const mins = Math.round(90 * m.size / 60); const S = App.load().sessions || [];
+  const card = (id, title, sub, label, extra) => { const t = S.filter(x => id === 'RANDOM' ? (x.kind === 'mock' && !x.exam) : x.exam === id); const best = t.reduce((mx, x) => Math.max(mx, App.pct(x.score, x.n)), -1); const last = t[t.length - 1];
+    return `<div class="card"><div class="topic-no">${label}</div><h3 style="margin:2px 0 8px">${esc(title)}</h3><p class="muted small" style="min-height:3.2em">${sub}<br>${t.length ? `Best ${best}% · latest ${App.pct(last.score, last.n)}% · taken ${t.length}×` : 'Not attempted yet.'}</p><button class="btn primary" data-exam="${id}">${t.length ? 'Take again' : 'Start'}</button></div>`; };
+  view.innerHTML = `<h1><em>Exams</em></h1><p class="lead">The real paper has 60 multiple-choice questions in 90 minutes, and you need 70% (42 correct) to pass. Each exam below follows the topic weightings. No feedback until you submit; you can flag questions and jump around. A paused exam resumes where you left it, with the clock stopped while you were away.</p>
+  ${m.available < 60 ? `<div class="banner" style="margin:14px 0">The verified official bank has only ${m.available} questions, so the official mock is shorter than the real exam.</div>` : ''}
+  <div class="grid g2" style="margin:18px 0">
+    ${card('RANDOM', 'Official-question mock', `Drawn from the 2006 paper and the 2023 sample test. ${m.size} questions, ${mins} min. Different each time.`, 'Official questions')}
+    ${(D.exams || []).map(e => card(e.id, e.name, '60 new guide-based questions, fixed set, no overlap with the other exams. 90 min.', 'Full exam')).join('')}
+  </div>
+  <p class="muted small">Your wrong answers feed Weak spots. Weights: topic 4 is the heaviest (20–27%), then 5 (15–22%), 6 (13–20%), 3 (10–17%).</p>`;
+  view.querySelectorAll('[data-exam]').forEach(b => b.onclick = () => { const s = App.load(); if (s.activeRun && !s.activeRun.submitted && !confirm('You have an unfinished session. Starting this exam will replace it. Continue?')) return;
+    if (b.dataset.exam === 'RANDOM') return App.startRun('mock', m.ids, { limitMs: mins * 60e3 });
+    const e = (D.exams || []).find(x => x.id === b.dataset.exam); App.startRun('mock', e.ids, { limitMs: 90 * 60e3, note: e.id }); });
 };
 
 /* ---------- Weak spots ---------- */
@@ -227,7 +230,7 @@ V.cards = function(view){
   const draw = () => {
     const base = App.cardFacts.filter(f => !sel.size || sel.has(f.topic));
     const kcAll = D.kc.filter(k => !sel.size || sel.has(k.topic));
-    view.innerHTML = `<h1>Fact drill</h1><p class="lead">Short recall cards built from the guide's own facts. Numbers and words like “must”, “should” and “may” are blanked out, because those are what the exam tests. Cards you miss come back sooner.</p>
+    view.innerHTML = `<h1><em>Drill</em></h1><p class="lead">Short recall cards built from the guide's own facts. Numbers and words like “must”, “should” and “may” are blanked out, because those are what the exam tests. Cards you miss come back sooner.</p>
     <div class="card" style="margin-top:16px"><div class="field"><span class="lbl">Topics</span><div class="pills">${D.topics.map(t => `<button class="pill ${sel.has(t.id)?'on':''}" data-t="${t.id}">${t.id}. ${esc(t.short)}</button>`).join('')}</div></div>
     <div class="row"><button class="btn primary" id="n1">Numbers and rules (20)</button><button class="btn" id="n2">The guide's review questions (${kcAll.length})</button><button class="btn" id="n3">Unlearned facts (20)</button>${dueIds.length ? `<button class="btn" id="n4">Due today (${dueIds.length})</button>` : ''}</div></div>`;
     view.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = +b.dataset.t; sel.has(t) ? sel.delete(t) : sel.add(t); draw(); });
@@ -246,7 +249,7 @@ V.sources = function(view){
   const unv = qs.filter(q => App.trust(q) === 'unverified' && q.src !== 'unofficial');
   const best = qs.filter(q => App.trust(q) === 'bestfit');
   const row = (l, k) => { const L = by(k); return `<tr><td>${l}</td><td>${L.length}</td><td>${cnt(L,q=>App.trust(q)==='verified')}</td><td>${cnt(L,q=>App.trust(q)==='bestfit')}</td><td>${cnt(L,q=>App.trust(q)==='unverified'||App.trust(q)==='unofficial')}</td></tr>`; };
-  view.innerHTML = `<h1>Sources and trust</h1><p class="lead">The tool is built to be accurate first. This page says exactly where everything comes from and how far to trust it.</p>
+  view.innerHTML = `<h1>Sources, <em>trust</em> and backup</h1><p class="lead">The tool is built to be accurate first. This page says exactly where everything comes from and how far to trust it.</p>
   <h2>What counts as truth</h2><div class="card"><ol style="margin:0;padding-left:1.2em"><li><b>The Study Guide v3.5</b> (HKSI, April 2026, effective for exams from 30 June 2026) is the single source of truth. All lessons and answer explanations cite its pages. Click any <span class="cite">p.x</span> link to see the original page.</li><li><b>Official HKSI questions</b> (the Oct 2023 sample test and the Dec 2006 past paper) are used as questions. Each one was re-checked against the current guide, because the law and the guide have changed. The publisher's answer key is shown, but the tool's answer is what the guide supports.</li><li><b>Unofficial material</b> from third-party prep sites is always labelled, never used in mock exams, and marked when the guide does not back it.</li></ol></div>
   <h2 style="margin-top:28px">Question bank</h2><div class="card scroll-x"><table class="tbl"><thead><tr><th>Source</th><th>Questions</th><th>Verified</th><th>Best-supported</th><th>Unverified</th></tr></thead><tbody>${row('Official sample test, Oct 2023','sample2023')}${row('New, written from the guide','generated')}${row('Past paper, Dec 2006','past2006')}${row('Unofficial banks','unofficial')}</tbody></table>
   <p class="small muted" style="margin-bottom:0"><b>Verified</b>: the guide supports the answer directly. <b>Best-supported</b>: the answer is the best option but part of the reasoning is inferred. <b>Unverified</b>: outdated or not covered by the guide, hidden by default.</p></div>

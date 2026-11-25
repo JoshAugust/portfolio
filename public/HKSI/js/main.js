@@ -1,10 +1,23 @@
 (function(){
 const App = window.App, $ = App.$;
-const NAV = [['#/','Home','⌂'],['#/learn','Learn','▤'],['#/figures','Key figures','№'],['#/practice','Practice','✎'],['#/mock','Mock exam','◷'],['#/mistakes','Weak spots','◎'],['#/cards','Fact drill','▣'],['#/sources','Sources','✓']];
-App.refreshNav = function(){
-  const h = location.hash || '#/'; const open = App.load() && App.mistakes().length;
-  $('#navlinks').innerHTML = NAV.map(([href,l,ic]) => { const on = href === '#/' ? (h === '#/' || h === '') : (h.startsWith(href) || (href === '#/practice' && h === '#/run') || (href === '#/mistakes' && h === '#/history')); return `<a href="${href}" class="${on?'on':''}"><span aria-hidden="true">${ic}</span>${l}${href === '#/mistakes' && open ? `<span class="badge">${open}</span>` : ''}</a>`; }).join('');
+const GROUPS = {
+  learn:  { href:'#/learn',    label:'Learn',  icon:'▤', tabs:[['#/learn','Topics',['learn','search']],['#/figures','Key figures',['figures']]] },
+  test:   { href:'#/practice', label:'Test',   icon:'✎', tabs:[['#/practice','Quizzes',['practice']],['#/mock','Exams',['mock']]] },
+  review: { href:'#/cards',    label:'Review', icon:'◎', tabs:[['#/cards','Drill',['cards']],['#/mistakes','Weak spots',['mistakes']],['#/plan','Revision plan',['plan']],['#/history','Results',['history']]] }
 };
+const NAV = [['home','#/','Home','⌂'], ['learn'], ['test'], ['review'], ['sources','#/sources','More','✓']];
+const groupOf = name => Object.keys(GROUPS).find(k => GROUPS[k].tabs.some(t => t[2].includes(name)) || (k === 'test' && name === 'run'));
+App.refreshNav = function(){
+  const name = ((location.hash || '#/').slice(2).split('/')[0]) || 'home'; const open = App.load() && App.mistakes().length; const g = groupOf(name);
+  $('#navlinks').innerHTML = NAV.map(n => { let key = n[0], href, label, icon;
+    if (GROUPS[key]) { href = GROUPS[key].href; label = GROUPS[key].label; icon = GROUPS[key].icon; } else { [, href, label, icon] = n; }
+    const on = GROUPS[key] ? g === key : (key === 'home' ? name === 'home' : name === key);
+    return `<a href="${href}" class="${on ? 'on' : ''}"><span aria-hidden="true">${icon}</span>${label}${key === 'review' && open ? `<span class="badge">${open}</span>` : ''}</a>`; }).join('');
+};
+function subnav(name){
+  const g = groupOf(name); if (!g || name === 'run') return '';
+  return `<nav class="subnav" aria-label="${GROUPS[g].label} sections">${GROUPS[g].tabs.map(t => `<a href="${t[0]}" class="${t[2].includes(name) ? 'on' : ''}">${t[1]}${t[0] === '#/plan' && (App.load().plan || []).length ? ` <span class="n">${App.load().plan.length}</span>` : ''}</a>`).join('')}</nav>`;
+}
 App.route = function(){
   const view = $('#view'); const raw = (location.hash || '#/').slice(2); const parts = raw.split('/'); const name = parts[0] || 'home';
   window.scrollTo(0, 0);
@@ -15,7 +28,9 @@ App.route = function(){
     else if (App.views[name]) App.views[name](view, parts);
     else App.views.home(view);
   } catch (e) { view.innerHTML = `<div class="card"><h2>Something went wrong</h2><pre style="white-space:pre-wrap">${App.esc(e.stack || e)}</pre></div>`; console.error(e); }
+  if (!(name === 'cards' && App.cardRun && App.cardRun.i < App.cardRun.ids.length)) view.insertAdjacentHTML('afterbegin', subnav(name));
   App.refreshNav();
+  const st = App.load().settings; if (!st.tipSeen && ['learn','figures','run'].includes(name)) { st.tipSeen = true; App.save(); setTimeout(() => App.toast('Tip: highlight any text to add it to your revision plan'), 900); }
 };
 function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
 $('#themebtn').onclick = () => { const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; const nx = cur === 'light' ? 'dark' : 'light'; applyTheme(nx); try { localStorage.setItem('hksi.theme', nx); } catch(e){} };
