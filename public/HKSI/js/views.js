@@ -20,13 +20,43 @@ function topicProgress(t){
 }
 const weightTxt = t => t.wmin ? `${t.wmin}–${t.wmax}%` : `up to ${t.wmax}%`;
 
+/* ---------- Home notices: resume, tour, backup ---------- */
+function notices(){
+  const s = App.load(); let h = '';
+  const ar = s.activeRun;
+  if (ar && !ar.submitted) { const done = Object.keys(ar.ans || {}).length;
+    h += `<div class="card notice"><div class="sp"><b>You have an unfinished ${ar.kind === 'mock' ? 'mock exam' : 'quiz'}</b><div class="muted small">${done} of ${ar.ids.length} answered. It was saved automatically${ar.kind === 'mock' ? ', and the clock was paused while you were away' : ''}.</div></div><button class="btn primary" id="resume">Resume</button><button class="btn ghost" id="discard">Discard</button></div>`; }
+  if (!s.settings.tourSeen) h += `<div class="card notice"><div class="sp"><b>New here?</b><div class="muted small">A one-minute tour shows where everything is and how your progress is kept.</div></div><button class="btn primary" id="hometour">Take the tour</button><button class="btn ghost" id="tourno">Not now</button></div>`;
+  const answers = Object.values(s.attempts).reduce((a, x) => a + x.n, 0);
+  if (App.storageOK && (answers >= 25 || (s.sessions || []).length >= 2) && Date.now() - (s.lastExport || 0) > 7 * 864e5)
+    h += `<div class="card notice"><div class="sp"><b>Keep a backup</b><div class="muted small">Your progress lives in this browser only. A backup file protects it if you clear browser data or switch device.</div></div><button class="btn" id="homebk">Download backup</button></div>`;
+  return h;
+}
+
+/* ---------- Results history ---------- */
+V.history = function(view){
+  const s = App.load(); const list = (s.sessions || []).slice().reverse(); const saved = new Set((s.runs || []).map(r => r.id));
+  const last = (s.sessions || []).slice(-24);
+  const spark = last.length ? `<div class="spark" aria-label="Score for each of your last ${last.length} sessions">${last.map(x => `<i class="${x.kind === 'mock' ? 'mock' : ''}" style="height:${Math.max(4, App.pct(x.score, x.n))}%" title="${App.pct(x.score, x.n)}%"></i>`).join('')}<span class="passline" style="bottom:70%"></span></div><div class="row small muted" style="margin-top:6px"><span><i class="chip" style="background:var(--accent);padding:0 6px">&nbsp;</i> practice</span><span><i class="chip" style="background:var(--coral);padding:0 6px">&nbsp;</i> mock exam</span><span>dashed line = 70% pass mark</span></div>` : '';
+  const kl = { practice:'Practice', retry:'Retry mistakes', targeted:'Targeted quiz', mock:'Mock exam', review:'Daily review' };
+  view.innerHTML = `<h1>Your <em>results</em></h1><p class="lead">Every finished quiz and mock exam is saved here, along with the questions you answered. Nothing is lost when you close the tab.</p>
+  ${list.length ? `<div class="card" style="margin:18px 0">${spark}</div>
+  <div class="card scroll-x" style="padding:8px 18px"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Score</th><th></th><th>Time</th><th></th></tr></thead><tbody>${list.map(x => { const p = App.pct(x.score, x.n); const tm = Math.round((x.ms || 0) / 60000);
+    return `<tr><td>${new Date(x.ts).toLocaleString([], { dateStyle:'medium', timeStyle:'short' })}</td><td>${kl[x.kind] || x.kind}</td><td><b>${x.score} / ${x.n}</b> · ${p}%</td><td>${x.kind === 'mock' ? `<span class="chip ${p >= 70 ? 'good' : 'bad'}">${p >= 70 ? 'Pass' : 'Below 70%'}</span>` : ''}</td><td>${tm || '<1'} min</td><td>${saved.has(x.id) ? `<button class="btn sm" data-open="${x.id}">Review</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+  <p class="muted small" style="margin-top:12px">Answers to individual questions also feed your <a href="#/mistakes">weak spots</a>. The last 15 sessions can be reopened for review.</p>`
+  : `<div class="card empty">No finished sessions yet. <a href="#/practice">Start a quiz</a> and your results will appear here.</div>`}
+  <div class="card flat" style="margin-top:18px"><b class="small">Where is this saved?</b> <span class="muted small">In this browser on this device, and it survives refreshing and closing the tab. It is lost only if you clear your browser's site data, use a private window, or switch browser or device. <a href="#/sources">Download a backup</a> to keep a copy or move it elsewhere.</span></div>`;
+  view.querySelectorAll('[data-open]').forEach(b => b.onclick = () => App.openSavedRun(b.dataset.open));
+};
+
 /* ---------- Home ---------- */
 V.home = function(view){
   const st = stats(); const rec = App.recommendTopics().slice(0, 3);
   view.innerHTML = `
   <div style="padding:18px 0 6px"><div class="chip acc">Study Guide v3.5 · exams from 30 June 2026</div>
-  <h1 style="margin-top:12px;font-size:2.4rem">Paper 1: Fundamentals of Securities and Futures Regulation</h1>
+  <h1 style="margin-top:14px;font-size:clamp(2.2rem,5vw,3.4rem);line-height:1.08">Paper 1: <em>Fundamentals</em> of Securities and Futures Regulation</h1>
   <p class="lead">Every fact and every answer in this tool traces back to a page of the official study guide. Questions you miss are remembered, so the tool can show you what to revisit.</p></div>
+  ${notices()}
   <div class="grid g4" style="margin:22px 0">
     <div class="card stat"><b>${st.acc === null ? '–' : Math.round(st.acc*100) + '%'}</b><span>accuracy so far (${st.n} answers)</span></div>
     <div class="card stat"><b>${st.seen}<small class="muted" style="font-size:1rem"> / ${st.total}</small></b><span>questions attempted</span></div>
@@ -36,13 +66,18 @@ V.home = function(view){
   <div class="row" style="margin-bottom:8px">
     <a class="btn primary" href="#/practice">Start practising</a>
     ${st.due ? `<button class="btn" id="dueq">Review ${st.due} due</button>` : ''}
-    <a class="btn" href="#/mock">Take a mock exam</a><a class="btn" href="#/learn">Learn the guide</a>
+    <a class="btn" href="#/mock">Take a mock exam</a><a class="btn" href="#/learn">Learn the guide</a><a class="btn" href="#/history">My results</a>
   </div>
   ${rec.length ? `<h2 style="margin-top:30px">Where to focus next</h2><div class="grid g3">${rec.map(w => { const t = App.topic(w.id); return `<div class="card"><div class="topic-no">Topic ${t.id}</div><h3>${esc(t.short)}</h3><p class="muted small">${w.open} open mistake${w.open===1?'':'s'}${w.acc !== null ? ` · ${Math.round(w.acc*100)}% accurate` : ''}</p><div class="row"><a class="btn sm" href="#/learn/${t.id}">Re-read</a><button class="btn sm primary" data-quiz="${t.id}">Quiz me</button></div></div>`; }).join('')}</div>` : ''}
   <h2 style="margin-top:30px">Topics</h2>
   <div class="grid g3">${D.topics.map(t => { const p = topicProgress(t.id); return `<a class="card topic-card" href="#/learn/${t.id}"><div class="topic-no">Topic ${t.id} · exam weight ${weightTxt(t)}</div><h3 style="margin:0">${esc(t.title)}</h3>
     <div><div class="bar"><i style="width:${App.pct(p.learned, p.facts)}%"></i></div><div class="row small muted" style="margin-top:6px"><span>${p.learned}/${p.facts} facts learned</span><span class="sp"></span><span>${p.acc === null ? 'no quiz data' : Math.round(p.acc*100) + '% accurate'}</span></div></div></a>`; }).join('')}</div>
   <div class="card flat" style="margin-top:28px"><b>How far to trust it.</b> <span class="muted">Each question is labelled. "Verified in guide" means the current guide supports the answer directly. "Best-supported" means it is the best option but some reasoning is inferred. "Unverified" questions are hidden unless you switch them on. <a href="#/sources">Details</a></span></div>`;
+  const rs = $('#resume'); if (rs) rs.onclick = () => App.resumeRun();
+  const ds = $('#discard'); if (ds) ds.onclick = () => { if (confirm('Discard the unfinished session?')) { App.discardRun(); App.route(); } };
+  const tt = $('#hometour'); if (tt) tt.onclick = () => App.startTour();
+  const td = $('#tourno'); if (td) td.onclick = () => { App.load().settings.tourSeen = true; App.save(); App.route(); };
+  const bk = $('#homebk'); if (bk) bk.onclick = () => { App.exportProgress(); App.route(); };
   const dq = $('#dueq'); if (dq) dq.onclick = () => { const q = App.dueQuestions(); if (q.length) App.startRun('review', q.map(x => x.id)); else App.startCards(App.dueCards()); };
   view.querySelectorAll('[data-quiz]').forEach(b => b.onclick = () => startTopicQuiz(+b.dataset.quiz));
 };
@@ -219,9 +254,9 @@ V.sources = function(view){
   ${best.length ? `<details class="acc" style="margin-top:18px"><summary>${best.length} best-supported questions (answer reached partly by elimination)</summary><div class="in">${best.map(q => `<p class="small"><b>${esc(q.srcLabel.split(',')[0])} Q${q.n}</b> · ${App.inline((q.bottom || '').slice(0, 260))}${(q.bottom||'').length > 260 ? '…' : ''}</p>`).join('')}</div></details>` : ''}
   ${(D.unofficial||[]).some(u => u.guide_check === 'CONTRADICTED') ? `<h2 style="margin-top:28px">Unofficial claims the guide contradicts</h2><div class="card">${D.unofficial.filter(u => u.guide_check === 'CONTRADICTED').map(u => `<p class="small"><span class="chip bad">Contradicts guide</span> ${esc(u.claim)} <span class="muted">(${esc(u.source_name||'')})</span> ${(u.guide_pages||[]).slice(0,3).map(g => `<a class="cite" data-page="${g}" href="#">p.${esc(App.pageLabel(g))}</a>`).join(' ')}</p>`).join('')}</div>` : ''}
   <h2 style="margin-top:28px">Known quirks in the guide</h2><div class="card"><ul style="margin:0;padding-left:1.2em"><li>Regulated activity Types 11 and 12 are described as not yet fully in force.</li><li>A page refers to "Part XI" where discipline is under Part IX.</li><li>The futures and securities dealing definitions use "and" in one place and "or" in another.</li><li>Several of the guide's own review answers just point to a section.</li></ul></div>
-  <h2 style="margin-top:28px">Your data</h2><div class="card"><p class="small muted">Progress is stored only in this browser. Export it to back it up or move it to another device.</p><div class="row"><button class="btn" id="exp">Export progress</button><label class="btn">Import progress<input id="imp" type="file" accept="application/json" hidden></label><button class="btn" id="rst" style="color:var(--bad)">Reset everything</button></div></div>
+  <h2 style="margin-top:28px">Your data</h2><div class="card"><p class="small muted">Your progress, results and mistakes are saved automatically in this browser and survive refreshing or closing the tab. They are lost only if you clear site data, use a private window, or change browser or device. Download a backup to keep a copy or move it.</p><div class="row"><button class="btn" id="exp">Export progress</button><label class="btn">Import progress<input id="imp" type="file" accept="application/json" hidden></label><button class="btn" id="rst" style="color:var(--bad)">Reset everything</button></div></div>
   <div class="card flat" style="margin-top:22px"><b class="small">Copyright.</b> <span class="muted small">The Study Guide and sample test are © Hong Kong Securities and Investment Institute. HKSI states its sample questions are not real exam questions and may be out of date. This tool is for personal study. Do not redistribute the materials.</span></div>`;
-  $('#exp').onclick = () => { const b = new Blob([JSON.stringify(App.load())], { type:'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'hksi-progress.json'; a.click(); };
+  $('#exp').onclick = App.exportProgress;
   $('#imp').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { App.replaceState(JSON.parse(t)); App.toast('Progress imported'); App.route(); } catch(err) { App.toast('That file is not valid'); } }); };
   $('#rst').onclick = () => { if (confirm('Delete all your progress and mistakes on this device?')) { App.reset(); App.toast('Progress reset'); App.route(); } };
 };

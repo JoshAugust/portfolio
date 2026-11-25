@@ -6,7 +6,9 @@
 <meta name="robots" content="noindex,nofollow">
 <script>window.HKSI_PUBLIC=true;</script>
 <title>HKSI Paper 1 Study Tool</title>
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/style.css">
+<script>try{var t=localStorage.getItem("hksi.theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
 <div class="shell">
@@ -17,7 +19,10 @@
   </aside>
   <main class="main">
     <header class="topbar">
-      <form id="searchform" role="search"><input id="searchbox" type="search" placeholder="Search every fact in the guide…" aria-label="Search the guide"></form>
+      <form id="searchform" role="search" style="flex:1;max-width:420px"><input id="searchbox" type="search" placeholder="Search every fact in the guide…" aria-label="Search the guide"></form>
+      <span class="sp"></span>
+      <button class="btn tourbtn" id="tourbtn" type="button" aria-label="Take a guided tour of the site"><i>?</i><span>Take the tour</span></button>
+      <button class="iconbtn" id="themebtn" type="button" aria-label="Switch between dark and light mode" title="Light / dark">◐</button>
     </header>
     <div id="view" class="view" tabindex="-1"></div>
   </main>
@@ -29,6 +34,7 @@
 <script src="js/views.js"></script>
 <script src="js/quiz.js"></script>
 <script src="js/figures.js"></script>
+<script src="js/tour.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ App.$ = $; App.$$ = $$; App.esc = esc;
 /* ---------- storage (localStorage with in-memory fallback) ---------- */
 const KEY = 'hksi.paper1.v1';
 let mem = null;
-function blank(){ return { attempts:{}, cards:{}, learned:{}, log:[], sessions:[], settings:{ showUnverified:false } }; }
+function blank(){ return { attempts:{}, cards:{}, learned:{}, log:[], sessions:[], runs:[], activeRun:null, lastExport:0, settings:{ showUnverified:false } }; }
 App.load = function(){
   if (mem) return mem;
   try { const raw = localStorage.getItem(KEY); mem = raw ? Object.assign(blank(), JSON.parse(raw)) : blank(); }
@@ -19,6 +19,29 @@ App.load = function(){
 App.save = function(){ try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch(e){} };
 App.reset = function(){ mem = blank(); App.save(); };
 App.replaceState = function(obj){ mem = Object.assign(blank(), obj); App.save(); };
+App.storageOK = (function(){ try { localStorage.setItem('hksi.probe','1'); localStorage.removeItem('hksi.probe'); return true; } catch(e){ return false; } })();
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
+App.exportProgress = function(){
+  const s = App.load(); s.lastExport = Date.now(); App.save();
+  const b = new Blob([JSON.stringify(s)], { type:'application/json' }); const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = 'hksi-progress-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+  App.toast('Backup downloaded');
+};
+/* an unfinished quiz or mock is saved after every step, so a refresh or closed tab loses nothing */
+App.persistRun = function(){
+  const r = App.run, s = App.load();
+  if (!r || r.submitted) { if (s.activeRun) { s.activeRun = null; App.save(); } return; }
+  s.activeRun = Object.assign({}, r, { elapsed: Date.now() - r.start }); App.save();
+};
+App.resumeRun = function(){
+  const r = App.load().activeRun; if (!r) return false;
+  r.start = Date.now() - (r.elapsed || 0); r.submitted = false; App.run = r; location.hash = '#/run'; App.route(); return true;
+};
+App.discardRun = function(){ const s = App.load(); s.activeRun = null; App.run = null; App.save(); };
+App.openSavedRun = function(id){
+  const r = (App.load().runs || []).find(x => x.id === +id); if (!r) { App.toast('That session is no longer stored'); return; }
+  App.run = Object.assign({}, r, { submitted:true }); location.hash = '#/run'; App.route();
+};
 App.toast = function(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(App._tt); App._tt=setTimeout(()=>t.hidden=true,2200); };
 
 /* ---------- topics, pages ---------- */

@@ -7,6 +7,7 @@ App.run = null;
 App.startRun = function(kind, ids, opts={}){
   if (!ids.length) { App.toast('No questions match those settings'); return false; }
   App.run = { kind, ids, i:0, ans:{}, checked:{}, flags:{}, start:Date.now(), limitMs: opts.limitMs || 0, submitted:false, note: opts.note || '' };
+  App.persistRun();
   if (location.hash === '#/run') App.route(); else location.hash = '#/run';
   return true;
 };
@@ -60,6 +61,7 @@ App.renderRun = function(view){
   const r = App.run;
   if (!r) { location.hash = '#/practice'; return; }
   if (r.submitted) return App.renderResults(view);
+  App.persistRun();
   const q = App.qById(r.ids[r.i]); const mock = r.kind === 'mock';
   const checked = !!r.checked[q.id]; const sel = r.ans[q.id];
   const answered = Object.keys(r.ans).length;
@@ -86,7 +88,7 @@ App.renderRun = function(view){
   </div>`;
   if (mock) {
     const upd = () => { const left = r.limitMs - (Date.now() - r.start); const t = $('#timer'); if (!t) return clearInterval(tick); t.textContent = fmtTime(left); t.classList.toggle('low', left < 5*60e3); if (left <= 0) { clearInterval(tick); App.submitRun(); } };
-    upd(); tick = setInterval(upd, 1000);
+    let n = 0; upd(); tick = setInterval(() => { upd(); if (++n % 10 === 0) App.persistRun(); }, 1000);
   }
   const choose = k => { if (!r.checked[q.id] && q.opts[k]) { r.ans[q.id] = k; App.renderRun(view); } };
   view.querySelectorAll('.opt').forEach(b => b.onclick = () => choose(b.dataset.k));
@@ -113,7 +115,9 @@ App.submitRun = function(){
   if (r.kind === 'mock') r.ids.forEach(id => { if (r.ans[id]) App.recordAnswer(App.qById(id), r.ans[id], 'mock'); });
   const s = App.load();
   const score = r.ids.filter(id => r.ans[id] === App.qById(id).ans).length;
-  s.sessions.push({ kind:r.kind, ts:r.end, n:r.ids.length, score, answered:Object.keys(r.ans).length, ms:r.end - r.start });
+  s.sessions.push({ kind:r.kind, ts:r.end, n:r.ids.length, score, answered:Object.keys(r.ans).length, ms:r.end - r.start, id:r.end });
+  s.runs = s.runs || []; s.runs.push({ id:r.end, kind:r.kind, ids:r.ids, ans:r.ans, flags:r.flags, checked:r.checked, start:r.start, end:r.end, note:r.note }); if (s.runs.length > 15) s.runs.shift();
+  s.activeRun = null;
   if (s.sessions.length > 300) s.sessions.shift();
   App.save(); location.hash = '#/run'; App.route && App.route();
 };
@@ -129,10 +133,12 @@ App.renderResults = function(view){
     <div class="card"><div class="row" style="gap:24px"><div class="ring" style="--p:${pct}"><div>${pct}%</div></div>
       <div><div class="stat"><b>${right.length} / ${n}</b><span>correct${mock ? ` · pass mark 70% (${Math.ceil(n*.7)} of ${n})` : ''}</span></div>
       <div class="muted small">${Object.keys(r.ans).length} answered · ${fmtTime((r.end||Date.now()) - r.start)} taken</div></div></div></div>
+    <p class="muted small" style="margin:10px 2px 0">✓ Saved in this browser. <a href="#/history">All your results</a> · <button class="btn sm ghost" id="bk" type="button">Download a backup</button></p>
     <h2 style="margin-top:26px">By topic</h2><div class="card flat">${Object.entries(byT).sort((a,b)=>a[0]-b[0]).map(([t,o]) => `<div class="row" style="margin:8px 0"><span style="width:200px">${t === '0' ? 'Other' : 'Topic ' + t + ' · ' + esc(App.topic(t).short)}</span><div class="bar ${o.ok/o.n<.7?'bad':'good'} sp"><i style="width:${App.pct(o.ok,o.n)}%"></i></div><span class="small muted" style="width:44px;text-align:right">${o.ok}/${o.n}</span></div>`).join('')}</div>
     <div class="row" style="margin:20px 0">${wrong.length ? `<button class="btn primary" id="retry">Retry the ${wrong.length} I missed</button>` : ''}<a class="btn" href="#/mistakes">See weak spots</a><a class="btn" href="#/practice">New quiz</a></div>
     <h2>Review</h2>${qs.map((q, i) => { const ok = r.ans[q.id] === q.ans; return `<details class="acc"><summary><span class="chip ${ok ? 'good' : 'bad'}">${ok ? '✓' : (r.ans[q.id] ? '✗' : '–')}</span><span>${i+1}. ${esc(q.stem.length > 110 ? q.stem.slice(0,110) + '…' : q.stem)}</span></summary><div class="in"><div class="qstem" style="font-size:1rem">${esc(q.stem)}</div>${q.stmts ? `<ul class="stmts">${q.stmts.map(s => `<li><b>${esc(s.n)}</b><span>${esc(s.text)}</span></li>`).join('')}</ul>` : ''}<div class="muted small">You chose: ${r.ans[q.id] ? r.ans[q.id] + '. ' + esc(q.opts[r.ans[q.id]]) : 'no answer'}</div>${App.explainHTML(q, r.ans[q.id] || 'none')}</div></details>`; }).join('')}
   </div>`;
+  $('#bk') && ($('#bk').onclick = App.exportProgress);
   const rb = $('#retry'); if (rb) rb.onclick = () => App.startRun('retry', wrong.map(q => q.id));
 };
 
