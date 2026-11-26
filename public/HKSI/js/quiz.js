@@ -166,7 +166,7 @@ App.renderCards = function(view){
   view.innerHTML = `<div class="qwrap"><div class="row" style="margin:8px 0 16px"><b>Drill</b><span class="muted small">Card ${r.i+1} of ${r.ids.length}</span><span class="sp"></span><a class="btn sm ghost" href="#/learn">End</a></div>
     <div class="bar" style="margin-bottom:16px"><i style="width:${App.pct(r.i, r.ids.length)}%"></i></div>
     <div class="card flash"><div class="row small">${App.chip('Topic ' + c.topic, 'acc')} <span class="muted">${esc(c.head)}</span></div>${c.kind === 'fact' && !c.blanks && !r.revealed ? `<div class="big" style="color:var(--muted)">${esc(c.head)}</div><div class="muted">What does the guide say here?</div>` : body}
-      ${r.revealed && c.kind === 'fact' && !c.blanks ? `<div class="big">${esc(c.fact)}</div>${c.quote ? `<div class="quote">“${esc(c.quote)}”</div>` : ''}${c.trap ? `<div class="trap"><b>Trap:</b> ${esc(c.trap)}</div>` : ''}` : ''}
+      ${r.revealed && c.kind === 'fact' && !c.blanks ? `<div class="big">${App.enumify(esc(c.fact))}</div>${c.quote ? `<div class="quote">“${esc(c.quote)}”</div>` : ''}${c.trap ? `<div class="trap"><b>Trap:</b> ${esc(c.trap)}</div>` : ''}` : ''}
       ${r.revealed && c.page ? `<div class="row small"><span class="muted">Source:</span><a class="cite" data-page="${c.page}" href="#">p.${esc(App.pageLabel(c.page))}</a></div>` : ''}
     </div>
     <div class="row" style="margin-top:14px;justify-content:center">${r.revealed ? `<button class="btn" id="miss" style="min-width:130px">✗ Missed it</button><button class="btn primary" id="got" style="min-width:130px">✓ Got it</button>` : `<button class="btn primary" id="reveal" style="min-width:200px">Reveal</button>`}</div>

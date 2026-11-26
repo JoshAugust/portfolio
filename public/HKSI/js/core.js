@@ -197,7 +197,29 @@ App.cloze = function(fact){
     answers.push(m[0]); i = m.index + m[0].length;
   }
   parts.push(esc(fact.slice(i)));
-  return { html: parts.join(''), n: answers.length };
+  return { html: App.enumify(parts.join('')), n: answers.length };
+};
+
+/* ---------- display-only: put "(1) .. (2) .. (3) .." points on their own lines ---------- */
+const ENUM_SETS = [['1','2','3','4','5','6','7','8','9'], ['i','ii','iii','iv','v','vi','vii','viii','ix','x'], ['a','b','c','d','e','f','g','h']];
+App.enumify = function(h){
+  if (typeof h !== 'string' || h.indexOf('(') < 0) return h;
+  const re = /(^|[\s:;,.])\(([1-9]|[ivx]{1,4}|[a-h])\)(?=\s)/g; const hits = []; let m;
+  while ((m = re.exec(h))) hits.push({ i: m.index, pre: m[1], mk: m[2], len: m[0].length });
+  const mark = new Set();
+  for (const set of ENUM_SETS) {
+    let want = 0, run = [];
+    for (const x of hits) { if (x.mk === set[want]) { run.push(x); want++; } }
+    if (run.length >= 2) run.forEach(x => mark.add(x.i));
+  }
+  if (!mark.size) return h;
+  let out = '', last = 0;
+  for (const x of hits) {
+    if (!mark.has(x.i)) continue;
+    out += h.slice(last, x.i) + (/\s/.test(x.pre) || !x.pre ? '' : x.pre) + (x.i === 0 && !x.pre ? '' : '<br class="en">') + '<b class="en">(' + x.mk + ')</b>';
+    last = x.i + x.len;
+  }
+  return out + h.slice(last);
 };
 
 /* ---------- rendering helpers ---------- */
@@ -210,7 +232,7 @@ App.cite = function(escaped){ // escaped HTML string -> citation chips
 };
 App.inline = function(s){
   let h = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:]|$)/g, '$1<i>$2</i>');
-  return App.cite(h);
+  return App.enumify(App.cite(h));
 };
 App.md = function(src){
   const lines = src.replace(/\r/g,'').split('\n'); const out = []; let i = 0;

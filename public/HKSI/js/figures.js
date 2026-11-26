@@ -54,7 +54,7 @@ function row(f, kn){
   const cov = ui.cover && !kn[f.id];
   return `<div class="fgrow ${kn[f.id] ? 'done' : ''} ${cov ? '' : 'open'}" data-id="${f.id}">
     <div class="fgsubj"><b>${esc(f.subject)}</b><div class="row small" style="gap:6px;margin-top:4px">${App.chip(f.topic ? 'Topic ' + f.topic : 'Exam facts', 'acc')}${f.law ? `<span class="muted">${esc(f.law)}</span>` : ''}<a class="cite" data-page="${f.pdf_page}" href="#">p.${esc(App.pageLabel(f.pdf_page))}</a></div></div>
-    <div class="fgans">${cov ? `<button class="fgcover btn sm">Reveal</button>` : ''}<div class="fgbody"><div class="fgnum">${esc(f.figure)}</div><div class="fgdetail">${esc(f.detail)}</div>${f.trap ? `<div class="trap"><b>Don't confuse:</b> ${esc(f.trap)}</div>` : ''}<div class="quote">“${esc(f.quote)}”</div></div></div>
+    <div class="fgans">${cov ? `<button class="fgcover btn sm">Reveal</button>` : ''}<div class="fgbody"><div class="fgnum">${esc(f.figure)}</div><div class="fgdetail">${App.enumify(esc(f.detail))}</div>${f.trap ? `<div class="trap"><b>Don't confuse:</b> ${esc(f.trap)}</div>` : ''}<div class="quote">“${esc(f.quote)}”</div></div></div>
     <label class="fgknown small muted"><input type="checkbox" class="fgk" ${kn[f.id] ? 'checked' : ''}> known</label></div>`;
 }
 const baseCard = App.cardData;

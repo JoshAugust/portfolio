@@ -130,7 +130,7 @@ function renderFacts(body, id){
   draw();
 }
 function factHTML(f, s){
-  return `<div class="fact"><button class="tick ${s.learned[f.id] ? 'on' : ''}" data-id="${f.id}" aria-label="Mark as learned">✓</button><div class="txt"><div>${esc(f.f)}</div>
+  return `<div class="fact"><button class="tick ${s.learned[f.id] ? 'on' : ''}" data-id="${f.id}" aria-label="Mark as learned">✓</button><div class="txt"><div>${App.enumify(esc(f.f))}</div>
     ${f.tr ? `<div class="trap"><b>Trap:</b> ${esc(f.tr)}</div>` : ''}
     <div class="row small" style="margin-top:6px">${App.chip(TYPE_LABEL[f.t] || f.t)}<a class="cite" data-page="${f.p}" href="#">p.${esc(App.pageLabel(f.p))}</a>${f.q ? `<button class="btn sm ghost" data-q style="padding:0 4px">guide wording</button>` : ''}</div>${f.q ? `<div class="quote" hidden>“${esc(f.q)}”</div>` : ''}</div></div>`;
 }
@@ -143,7 +143,7 @@ V.search = function(view, parts){
   const facts = q ? App.allFacts.filter(f => hit(f.f + ' ' + f.h)).slice(0, 60) : [];
   const kc = q ? D.kc.filter(k => hit(k.q + ' ' + k.a)).slice(0, 10) : [];
   view.innerHTML = `<h1>Search</h1><p class="muted">${q ? `Results for “${esc(q)}”` : 'Type in the box above to search all 1,973 facts.'}</p>
-    ${facts.map(f => `<div class="card flat" style="margin:8px 0"><div class="row small">${App.chip('Topic ' + f.topic, 'acc')}<span class="muted">${esc(f.h)}</span></div><p style="margin:.4em 0 0">${esc(f.f)}</p><div class="row small"><a class="cite" data-page="${f.p}" href="#">p.${esc(App.pageLabel(f.p))}</a></div></div>`).join('')}
+    ${facts.map(f => `<div class="card flat" style="margin:8px 0"><div class="row small">${App.chip('Topic ' + f.topic, 'acc')}<span class="muted">${esc(f.h)}</span></div><p style="margin:.4em 0 0">${App.enumify(esc(f.f))}</p><div class="row small"><a class="cite" data-page="${f.p}" href="#">p.${esc(App.pageLabel(f.p))}</a></div></div>`).join('')}
     ${kc.length ? `<h2>Guide review questions</h2>${kc.map(k => `<div class="card flat" style="margin:8px 0"><b>${esc(k.q)}</b><p class="small">${esc(k.a)}</p><a class="cite" data-page="${k.pa || k.pq}" href="#">p.${esc(App.pageLabel(k.pa || k.pq))}</a></div>`).join('')}` : ''}
     ${q && !facts.length && !kc.length ? '<div class="empty">No facts match. Try fewer words.</div>' : ''}`;
 };

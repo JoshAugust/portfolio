@@ -251,3 +251,7 @@ h1 em,h2 em{font-style:italic;color:var(--coral)}
 .subnav a:hover{color:var(--ink)}
 .subnav a.on{background:var(--accent-soft);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
 .subnav .n{font-size:.7rem;background:var(--coral);color:#2a1604;border-radius:99px;padding:0 7px}
+
+/* numbered points on their own lines */
+b.en{font-weight:600;color:var(--accent);margin-right:.25em}
+br.en{display:block;content:'';margin-top:.35em}
