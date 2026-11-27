@@ -2,7 +2,7 @@
 (function(){
 const App = window.App, D = App.D, esc = App.esc, $ = App.$;
 const V = App.views = {};
-const SRC = { past2006:'Past paper (Dec 2006)', sample2023:'Official sample test (Oct 2023)', generated:'New questions written from the guide', unofficial:'Unofficial question banks' };
+const SRC = { past2006:'Past paper (Dec 2006)', sample2023:'Official sample test (Oct 2023)', generated_hard:'New exam-hard questions (guide-derived)', unofficial:'Unofficial question banks' };
 const TYPE_LABEL = { rule:'Rule', list:'List', number:'Number', principle:'Principle', definition:'Definition', contrast:'Contrast', exception:'Exception' };
 
 function stats(){
@@ -150,7 +150,7 @@ V.search = function(view, parts){
 
 /* ---------- Practice setup ---------- */
 V.practice = function(view){
-  const s = App.load(); const sel = { topics:new Set(), sources:new Set(['past2006','sample2023','generated']), len:20, mode:'mixed' };
+  const s = App.load(); const sel = { topics:new Set(), sources:new Set(['past2006','sample2023','generated_hard']), len:20, mode:'mixed' };
   const draw = () => {
     const pool = App.pool({ topics:[...sel.topics], sources:[...sel.sources] });
     const unseen = pool.filter(q => !s.attempts[q.id]).length;
@@ -251,7 +251,7 @@ V.sources = function(view){
   const row = (l, k) => { const L = by(k); return `<tr><td>${l}</td><td>${L.length}</td><td>${cnt(L,q=>App.trust(q)==='verified')}</td><td>${cnt(L,q=>App.trust(q)==='bestfit')}</td><td>${cnt(L,q=>App.trust(q)==='unverified'||App.trust(q)==='unofficial')}</td></tr>`; };
   view.innerHTML = `<h1>Sources, <em>trust</em> and backup</h1><p class="lead">The tool is built to be accurate first. This page says exactly where everything comes from and how far to trust it.</p>
   <h2>What counts as truth</h2><div class="card"><ol style="margin:0;padding-left:1.2em"><li><b>The Study Guide v3.5</b> (HKSI, April 2026, effective for exams from 30 June 2026) is the single source of truth. All lessons and answer explanations cite its pages. Click any <span class="cite">p.x</span> link to see the original page.</li><li><b>Official HKSI questions</b> (the Oct 2023 sample test and the Dec 2006 past paper) are used as questions. Each one was re-checked against the current guide, because the law and the guide have changed. The publisher's answer key is shown, but the tool's answer is what the guide supports.</li><li><b>Unofficial material</b> from third-party prep sites is always labelled, never used in mock exams, and marked when the guide does not back it.</li></ol></div>
-  <h2 style="margin-top:28px">Question bank</h2><div class="card scroll-x"><table class="tbl"><thead><tr><th>Source</th><th>Questions</th><th>Verified</th><th>Best-supported</th><th>Unverified</th></tr></thead><tbody>${row('Official sample test, Oct 2023','sample2023')}${row('New, written from the guide (incl. exam-hard set)','generated')}${row('Past paper, Dec 2006','past2006')}${row('Unofficial banks','unofficial')}</tbody></table>
+  <h2 style="margin-top:28px">Question bank</h2><div class="card scroll-x"><table class="tbl"><thead><tr><th>Source</th><th>Questions</th><th>Verified</th><th>Best-supported</th><th>Unverified</th></tr></thead><tbody>${row('Official sample test, Oct 2023','sample2023')}${row('New, exam-hard, written from the guide','generated_hard')}${row('Past paper, Dec 2006','past2006')}${row('Unofficial banks','unofficial')}</tbody></table>
   <p class="small muted" style="margin-bottom:0"><b>Verified</b>: the guide supports the answer directly. <b>Best-supported</b>: the answer is the best option but part of the reasoning is inferred. <b>Unverified</b>: outdated or not covered by the guide, hidden by default.</p></div>
   ${unv.length ? `<h2 style="margin-top:28px">Official questions the guide cannot confirm (${unv.length})</h2>${unv.map(q => `<details class="acc"><summary>${App.chip(q.srcLabel)}<span>${esc(q.stem.length > 100 ? q.stem.slice(0,100) + '…' : q.stem)}</span></summary><div class="in"><p class="small">${App.inline(q.bottom || 'Not analysed.')}</p><div class="chip warn">Publisher's key: ${esc(q.key)}</div></div></details>`).join('')}` : ''}
   ${best.length ? `<details class="acc" style="margin-top:18px"><summary>${best.length} best-supported questions (answer reached partly by elimination)</summary><div class="in">${best.map(q => `<p class="small"><b>${esc(q.srcLabel.split(',')[0])} Q${q.n}</b> · ${App.inline((q.bottom || '').slice(0, 260))}${(q.bottom||'').length > 260 ? '…' : ''}</p>`).join('')}</div></details>` : ''}

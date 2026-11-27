@@ -35,11 +35,15 @@ App.persistRun = function(){
 };
 App.resumeRun = function(){
   const r = App.load().activeRun; if (!r) return false;
+  r.ids = (r.ids || []).filter(id => App.qById(id));  // drop questions no longer in the bank
+  if (!r.ids.length) return false;
   r.start = Date.now() - (r.elapsed || 0); r.submitted = false; App.run = r; location.hash = '#/run'; App.route(); return true;
 };
 App.discardRun = function(){ const s = App.load(); s.activeRun = null; App.run = null; App.save(); };
 App.openSavedRun = function(id){
   const r = (App.load().runs || []).find(x => x.id === +id); if (!r) { App.toast('That session is no longer stored'); return; }
+  r.ids = (r.ids || []).filter(id => App.qById(id));  // drop questions no longer in the bank
+  if (!r.ids.length) { App.toast('That session\u2019s questions are no longer in the bank'); return; }
   App.run = Object.assign({}, r, { submitted:true }); location.hash = '#/run'; App.route();
 };
 App.toast = function(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(App._tt); App._tt=setTimeout(()=>t.hidden=true,2200); };
@@ -55,7 +59,7 @@ App.topicOfPage = p => (D.topics.find(t => p >= t.p0 && p <= t.p1) || {}).id || 
 // bestfit    : answer is the best-supported option, but one or more statements are inferred / eliminated.
 // unverified : guide can't confirm (outdated rule, guide silent, undetermined, unofficial without support).
 App.trust = function(q){
-  if (q.src === 'generated') return 'generated';
+  if (q.src === 'generated' || q.src === 'generated_hard') return 'generated';
   if (q.src === 'unofficial') return q.guide_check === 'SUPPORTED' ? 'unofficial-ok' : 'unofficial';
   if (q.status === 'CONFIRMED') return 'verified';
   if (q.status === 'PARTIAL' && q.verdict && 'ABCD'.includes(q.verdict)) return 'bestfit';
