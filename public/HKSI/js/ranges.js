@@ -95,13 +95,13 @@ function cellHTML(items, tint){
 function gridHTML(){
   const cells = gridData();
   const active = ROWS.filter(([r]) => cells[r] && COLS.some(([c]) => (cells[r][c] || []).length));
-  return `<div class="card scroll-x"><table class="rgtable" id="tltable"><thead><tr><th></th>${COLS.map(([c, l]) => `<th class="${c}">${l}</th>`).join('')}</tr></thead><tbody>
+  return `<div class="card scroll-x"><table class="rgtable" id="tltable"><thead><tr><th class="corner"></th>${COLS.map(([c, l]) => `<th class="${c}">${l}</th>`).join('')}</tr></thead><tbody>
     ${active.map(([r, rl]) => {
       const total = COLS.reduce((n, [c]) => n + ((cells[r][c] || []).length), 0);
-      return `<tr><th class="rgrowh"><b class="rgrownum">${esc(rowNum(r, rl))}</b><span class="muted small">· ${esc(rl.replace(/^[^·]*·\s*/, ''))}</span></th>
-      ${COLS.map(([c, , tint]) => cellHTML(cells[r][c], tint)).join('')}</tr>`; }).join('')}
+      return `<tr><th class="rgrowh"><b class="rgrownum">${esc(rowNum(r, rl))}</b><span class="muted small">· ${esc(rl.replace(/^[^·]*·\s*/, ''))} · ${total}</span></th>
+      ${COLS.map(([c, , tint]) => `<td class="rgtd">${cellHTML(cells[r][c], tint)}</td>`).join('')}</tr>`; }).join('')}
   </tbody></table></div>
-  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself.</p>`;
+  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself. The grid scrolls sideways; row and column headers stay pinned.</p>`;
 }
 
 /* ---------- 2. penalty board ---------- */
@@ -141,13 +141,12 @@ function boardHTML(){
   const board = {}; pens.forEach(f => { const p = penParse(f); if (p.case) return;
     (board[p.j] = board[p.j] || {}); (board[p.j][p.c] = board[p.j][p.c] || []).push(f); });
   const cases = pens.filter(f => penParse(f).case);
-  return `<div class="card scroll-x"><table class="rgtable"><thead><tr><th>Jail ↓ · Fine →</th>${FINE.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
+  return `<div class="card scroll-x"><table class="rgtable"><thead><tr><th class="corner">Jail ↓ · Fine →</th>${FINE.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${JAIL.map(j => `<tr><th class="rgrowh"><b class="rgrownum">${j === '0' ? 'no jail' : esc(j) + (j === '1' ? ' year' : ' years')}</b></th>${FINE.map(([c]) => {
       const items = (board[j] || {})[c];
-      if (!items) return `<div class="rgcell empty"></div>`;
-      return `<div class="rgcell">${items.map(f => tileHTML(f, penTint(f), 'pen')).join('')}</div>`; }).join('')}</tr>`).join('')}
+      return `<td class="rgtd">${items ? `<div class="rgcell">${items.map(f => tileHTML(f, penTint(f), 'pen')).join('')}</div>` : '<div class="rgcell empty"></div>'}</td>`; }).join('')}</tr>`).join('')}
   </tbody></table></div>
-  <p class="muted small" style="margin:8px 2px 0">Colours: <span class="chip bad">market misconduct / WMD</span> <span class="chip warn">AMLO</span> <span class="chip info">OTCD rules</span> <span class="chip acc">SFC disciplinary</span>. Two clusters, that's the whole board: <b>HK$1m + short jail</b> and <b>HK$10m-or-3× + long jail</b>; AMLO splits on intent (2y permitting vs 7y intent to defraud).</p>
+  <p class="muted small" style="margin:8px 2px 0">Colours: <span class="chip bad">market misconduct / WMD</span> <span class="chip warn">AMLO</span> <span class="chip info">OTCD rules</span> <span class="chip acc">SFC disciplinary</span>. Two clusters, that's the whole board: <b>HK$1m + short jail</b> and <b>HK$10m-or-3× + long jail</b>; AMLO splits on intent (2y permitting vs 7y intent to defraud). The board scrolls sideways with headers pinned.</p>
   ${cases.length ? `<h3 style="margin:18px 0 8px">Actual sanctions handed out (SFC cases — not maximums)</h3>
   <div class="card"><div class="rgcell">${cases.map(f => tileHTML(f, 'neu', 'pen')).join('')}</div></div>` : ''}`;
 }
