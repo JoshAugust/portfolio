@@ -279,11 +279,9 @@ br.en{display:block;content:'';margin-top:.35em}
 .rgtile.warn{background:color-mix(in srgb,var(--warn) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--warn) 42%,transparent)}
 .rgtile.bad{background:color-mix(in srgb,var(--bad) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--bad) 42%,transparent)}
 .rgtile.neu{background:var(--surface2);border:1px solid var(--line)}
-.rgtile .rgnum{font:700 .95rem/1.2 var(--serif);letter-spacing:.01em}
-.rgtile.acc .rgnum{color:var(--accent)} .rgtile.info .rgnum{color:var(--info)} .rgtile.good .rgnum{color:var(--good)}
-.rgtile.warn .rgnum{color:var(--warn)} .rgtile.bad .rgnum{color:var(--bad)} .rgtile.neu .rgnum{color:var(--ink)}
-.rgtile .rglbl{font-size:.68rem;font-weight:500;line-height:1.25;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.cov .rgnum,.cov .rgrownum{visibility:hidden}
+.rgtile .rgtitle{font-size:.78rem;font-weight:600;line-height:1.25;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.rgtile .rgexact{font-size:.68rem;font-weight:500;line-height:1.25;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cov .rgexact,.cov .rgrownum{visibility:hidden}
 #rgmodal .rgnum{font-family:var(--serif);color:var(--accent)}
 
 /* ---------- ask the guide ---------- */

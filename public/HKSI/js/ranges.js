@@ -73,9 +73,9 @@ function chipText(figure){
 function rowNum(r, rl){ return rl.split('·')[0].trim(); }
 const shortSub = s => s.length > 72 ? s.slice(0, 71).replace(/\s\S*$/, '') + '…' : s;
 function tileHTML(f, tint, kind, kn){
-  const num = kind === 'pen' ? penShort(f.figure) : chipText(f.figure);
+  const exact = kind === 'pen' ? penShort(f.figure) : chipText(f.figure);
   const done = kn && kn[f.id] ? ' done' : '';
-  return `<div class="rgtile ${tint}${done}" data-fig="${esc(f.id)}">${done ? '<span class="rgtick">✓</span>' : ''}<b class="rgnum">${esc(num)}</b><span class="rglbl">${esc(shortSub(f.subject))}</span></div>`;
+  return `<div class="rgtile ${tint}${done}" data-fig="${esc(f.id)}">${done ? '<span class="rgtick">✓</span>' : ''}<b class="rgtitle">${esc(shortSub(f.subject))}</b><span class="rgexact">${esc(exact)}</span></div>`;
 }
 function cellHTML(items, tint, kn){
   if (!items) return `<div class="rgcell ${tint} empty"></div>`;
@@ -91,7 +91,7 @@ function gridHTML(){
       return `<tr><th class="rgrowh"><b class="rgrownum">${esc(rowNum(r, rl))}</b><span class="muted small">· ${esc(rl.replace(/^[^·]*·\s*/, ''))} · ${total}</span></th>
       ${COLS.map(([c, , tint]) => `<td class="rgtd">${cellHTML(cells[r][c], tint, kn)}</td>`).join('')}</tr>`; }).join('')}
   </tbody></table></div>
-  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself. The grid scrolls sideways; row and column headers stay pinned. A tick marks a tile as known (set it in the tile's card); the tile fades but keeps its colour.</p>`;
+  <p class="muted small" style="margin:10px 2px 0">Each tile is titled by its <b>rule</b>; the grid gives you the rest — row = the time, column = who it's owed to. The small line under the title is the guide's exact wording, for checking nuances like "at least" or "business". <b>Cover mode</b> hides those exact lines (and the row numbers), leaving rule + position — recall the timing from the trigger, tap to check. The grid scrolls sideways; row and column headers stay pinned. A tick marks a tile as known.</p>`;
 }
 
 /* ---------- 2. penalty board ---------- */
@@ -240,8 +240,8 @@ App.views.ranges = function(view){
   view.querySelectorAll('.rgtile').forEach(t => t.onclick = () => {
     const f = fig(t.dataset.fig); if (!f) return;
     const sec = t.closest('.cov');                      /* inside a covered section? */
-    const num = t.querySelector('.rgnum');
-    if (sec && num && getComputedStyle(num).visibility === 'hidden') { num.style.visibility = 'visible'; return; }   /* first tap = reveal the number */
+    const ex = t.querySelector('.rgexact');
+    if (sec && ex && getComputedStyle(ex).visibility === 'hidden') { ex.style.visibility = 'visible'; return; }   /* first tap = reveal the exact value */
     figModal(f);                                        /* otherwise: full details */
   });
   view.querySelectorAll('.fgrow[data-oid] .fgk').forEach(cb => cb.onchange = e => { const k = known(); const id = cb.closest('.fgrow').dataset.oid; e.target.checked ? k[id] = Date.now() : delete k[id]; App.save(); App.views.ranges(view); });
