@@ -287,3 +287,4 @@ br.en{display:block;content:'';margin-top:.35em}
 #askinput{flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:.88rem}
 .askfoot{display:flex;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--line)}
 @media (max-width:820px){ #askbar{display:none} #askdock{left:0;width:100vw} }
+#askdock[hidden]{display:none}
