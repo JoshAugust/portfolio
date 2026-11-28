@@ -62,30 +62,18 @@ function gridData(){
   timeLimits.forEach(f => { const r = rowOf(f.figure), c = colOf(f); (cells[r] = cells[r] || {}); (cells[r][c] = cells[r][c] || []).push(f); });
   return cells;
 }
-/* the tile's "suit": the number in poker-chip form */
-function shortNum(figure){
-  const s = figure.toLowerCase();
-  let m;
-  if (/^t\+/.test(s)) return (s.match(/^t\+\d/)[0]).toUpperCase();
-  if (/as soon as|reasonably practicable|promptly/.test(s)) return 'ASAP';
-  if (/same time|immediatel|without delay/.test(s)) return 'NOW';
-  if ((m = s.match(/(\d+)\s*business days?/))) return m[1] + ' BD';
-  if ((m = s.match(/(\d+)\s*(?:hong kong )?trading days?/))) return m[1] + ' TD';
-  if ((m = s.match(/within 1 minute|within 15 minutes|within 1 hour/))) return 'mins';
-  if ((m = s.match(/(\d+)\s*days?/))) return m[1] + ' d';
-  if ((m = s.match(/(\d+)\s*weeks?/))) return m[1] + ' wk';
-  if ((m = s.match(/(\d+)\s*months?/))) return m[1] + ' mo';
-  if ((m = s.match(/(\d+)\s*financial years?/))) return m[1] + ' FY';
-  if ((m = s.match(/(\d+)\s*years?/))) return m[1] + ' yr';
-  if (/annually|yearly|each renewal/.test(s)) return 'annual';
-  if (/monthly/.test(s)) return 'monthly';
-  if (/daily|09:|9:15|12:00|13:00|16:|every 15|first 15|last 20|cooling-off|commencement of trading/.test(s)) return 'daily';
-  return figure.replace(/within |not later than |at least |no later than |agreement not longer than /i, '').trim().slice(0, 12);
+/* the tile's chip: the rule's own timing wording, kept specific — never a bare abstraction */
+function chipText(figure){
+  let s = figure.trim();
+  if (/^T\+\d/i.test(s)) return s.match(/^T\+\d/i)[0];
+  s = s.replace(/^(within|no later than|not later than)\s+/i, '');
+  if (s.length > 34) s = s.slice(0, 33).replace(/\s\S*$/, '') + '…';
+  return s;
 }
 function rowNum(r, rl){ return rl.split('·')[0].trim(); }
 const shortSub = s => s.length > 72 ? s.slice(0, 71).replace(/\s\S*$/, '') + '…' : s;
 function tileHTML(f, tint, kind, kn){
-  const num = kind === 'pen' ? penShort(f.figure) : shortNum(f.figure);
+  const num = kind === 'pen' ? penShort(f.figure) : chipText(f.figure);
   const done = kn && kn[f.id] ? ' done' : '';
   return `<div class="rgtile ${tint}${done}" data-fig="${esc(f.id)}">${done ? '<span class="rgtick">✓</span>' : ''}<b class="rgnum">${esc(num)}</b><span class="rglbl">${esc(shortSub(f.subject))}</span></div>`;
 }
