@@ -1,11 +1,11 @@
 (function(){
 const App = window.App, $ = App.$;
 const GROUPS = {
-  learn:  { href:'#/learn',    label:'Learn',  icon:'▤', tabs:[['#/learn','Topics',['learn','search']],['#/figures','Key figures',['figures']]] },
+  learn:  { href:'#/learn',    label:'Learn',  icon:'▤', tabs:[['#/learn','Topics',['learn','search']],['#/figures','Key figures',['figures']],['#/ranges','Ranges',['ranges']]] },
   test:   { href:'#/practice', label:'Test',   icon:'✎', tabs:[['#/practice','Quizzes',['practice']],['#/mock','Exams',['mock']]] },
   review: { href:'#/cards',    label:'Review', icon:'◎', tabs:[['#/cards','Drill',['cards']],['#/mistakes','Weak spots',['mistakes']],['#/plan','Revision plan',['plan']],['#/history','Results',['history']]] }
 };
-const NAV = [['home','#/','Home','⌂'], ['learn'], ['test'], ['review'], ['sources','#/sources','More','✓']];
+const NAV = [['home','#/','Home','⌂'], ['learn'], ['test'], ['review'], ['ask','#','Ask','✦'], ['sources','#/sources','More','✓']];
 const groupOf = name => Object.keys(GROUPS).find(k => GROUPS[k].tabs.some(t => t[2].includes(name)) || (k === 'test' && name === 'run'));
 App.refreshNav = function(){
   const name = ((location.hash || '#/').slice(2).split('/')[0]) || 'home'; const open = App.load() && App.mistakes().length; const g = groupOf(name);
