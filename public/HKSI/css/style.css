@@ -4,7 +4,7 @@
 :root{
   color-scheme:dark;
   --bg:#0e1218; --solid:#161c25; --surface:rgba(236,241,247,.055); --surface2:rgba(236,241,247,.09); --ink:#eef2f7; --muted:rgba(238,242,247,.66); --line:rgba(238,242,247,.13);
-  --accent:#5fd1b3; --accent-soft:rgba(95,209,179,.15); --accent-ink:#04140f; --coral:#f0b072; --mint:#8fe3c9;
+  --accent:#5fd1b3; --accent-deep:#108a70; --accent-soft:rgba(95,209,179,.15); --accent-ink:#04140f; --coral:#f0b072; --mint:#8fe3c9;
   --good:#86d99a; --good-soft:rgba(134,217,154,.14); --bad:#ff8f86; --bad-soft:rgba(255,120,110,.16); --warn:#f0c36a; --warn-soft:rgba(240,195,106,.13);
   --info:#9cc4f0; --info-soft:rgba(156,196,240,.14);
   --glass:linear-gradient(140deg,rgba(255,255,255,.12),rgba(255,255,255,.035) 46%,rgba(255,255,255,.07));
@@ -16,7 +16,7 @@
 :root[data-theme="light"]{
   color-scheme:light;
   --bg:#f3f1ed; --solid:#fffefb; --surface:rgba(255,255,255,.62); --surface2:rgba(20,30,45,.055); --ink:#17202a; --muted:rgba(23,32,42,.68); --line:rgba(23,32,42,.14);
-  --accent:#0f7a63; --accent-soft:rgba(15,122,99,.12); --accent-ink:#fff;
+  --accent:#0f7a63; --accent-deep:#0f7a63; --accent-soft:rgba(15,122,99,.12); --accent-ink:#fff;
   --good:#1d7a3e; --good-soft:rgba(40,160,80,.14); --bad:#b8382d; --bad-soft:rgba(230,100,90,.16); --warn:#8f6209; --warn-soft:rgba(240,195,106,.25);
   --info:#2d5a8c; --info-soft:rgba(45,90,140,.11);
   --glass:linear-gradient(140deg,rgba(255,255,255,.9),rgba(255,255,255,.55) 50%,rgba(255,255,255,.75));
@@ -152,7 +152,7 @@ details.acc>.in{padding:0 16px 12px}
 /* key figures */
 .inp{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
 .pill{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:5px 12px;border-radius:99px;font:inherit;font-size:.84rem;font-weight:600;cursor:pointer}
-.pill.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)} .pill.on .muted{color:var(--accent-ink);opacity:.8}
+.pill.on{background:var(--accent-deep);border-color:var(--accent);color:#fff} .pill.on .muted{color:#fff;opacity:.8}
 .fgtable{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
 .fgrow{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,1.5fr) auto;gap:16px;padding:14px 18px;border-top:1px solid var(--line);align-items:start}
 .fgrow:first-child{border-top:0} .fgrow.done{opacity:.55}
@@ -185,7 +185,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 .btn:hover,.pill:hover,.nav-grid button:hover,.iconbtn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
 .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 100%,#fff 12%),var(--accent));color:var(--accent-ink);border-color:transparent;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 10px 24px -12px var(--accent)}
 .btn.ghost{background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
-.pill.on,.opt.sel,.nav-grid button.done{background:var(--accent-soft)}
+.opt.sel,.nav-grid button.done{background:var(--accent-soft)}
 .opt.right{background:var(--good-soft)} .opt.wrong{background:var(--bad-soft)}
 .chip.acc{background:var(--accent-soft);color:var(--accent)}
 h1 em,h2 em{font-style:italic;color:var(--coral)}
