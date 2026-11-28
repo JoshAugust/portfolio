@@ -1,12 +1,14 @@
 /* Ranges: memory views built on the verified key figures.
-   1. Deadline range chart — time limits as a poker-style grid (shape first, cells second).
-   2. Penalty board — the few real fine/imprisonment numbers as a card grid.
-   3. The Orphanage — figures whose value appears nowhere else: the honest brute-force list.
+   1. Deadline range chart — time limits as a poker-style grid: each rule is a tile, the tile's
+      "suit" is its number, the grid's shape is the thing you learn. Cover mode ghosts every
+      number (tiles and row heads) and leaves the shape for self-testing; tap a tile to reveal.
+   2. Penalty board — the real fine/jail numbers as regime-coloured tiles on a fine×jail grid.
+   3. The Orphanage — figures whose value appears at most twice anywhere: brute-force these.
    Everything is computed from D.figures (machine-checked against the guide); nothing is hand-maintained. */
 (function(){
 const App = window.App, D = App.D, esc = App.esc, $ = App.$;
 const F = D.figures || [];
-const ui = { covTL:false, covPen:false, hideOrph:false, revealed:{} };
+const ui = { covTL: false, covPen: false, hideOrph: false, revealed: {} };
 function known(){ const s = App.load(); return s.figKnown || (s.figKnown = {}); }
 
 /* ---------- 1. deadline range chart ---------- */
@@ -60,24 +62,46 @@ function gridData(){
   timeLimits.forEach(f => { const r = rowOf(f.figure), c = colOf(f); (cells[r] = cells[r] || {}); (cells[r][c] = cells[r][c] || []).push(f); });
   return cells;
 }
-const shortSub = s => s.length > 44 ? s.slice(0, 43).replace(/\s\S*$/, '') + '…' : s;
-function cellHTML(items, key, tint){
+/* the tile's "suit": the number in poker-chip form */
+function shortNum(figure){
+  const s = figure.toLowerCase();
+  let m;
+  if (/^t\+/.test(s)) return (s.match(/^t\+\d/)[0]).toUpperCase();
+  if (/as soon as|reasonably practicable|promptly/.test(s)) return 'ASAP';
+  if (/same time|immediatel|without delay/.test(s)) return 'NOW';
+  if ((m = s.match(/(\d+)\s*business days?/))) return m[1] + ' BD';
+  if ((m = s.match(/(\d+)\s*(?:hong kong )?trading days?/))) return m[1] + ' TD';
+  if ((m = s.match(/within 1 minute|within 15 minutes|within 1 hour/))) return 'mins';
+  if ((m = s.match(/(\d+)\s*days?/))) return m[1] + ' d';
+  if ((m = s.match(/(\d+)\s*weeks?/))) return m[1] + ' wk';
+  if ((m = s.match(/(\d+)\s*months?/))) return m[1] + ' mo';
+  if ((m = s.match(/(\d+)\s*financial years?/))) return m[1] + ' FY';
+  if ((m = s.match(/(\d+)\s*years?/))) return m[1] + ' yr';
+  if (/annually|yearly|each renewal/.test(s)) return 'annual';
+  if (/monthly/.test(s)) return 'monthly';
+  if (/daily|09:|9:15|12:00|13:00|16:|every 15|first 15|last 20|cooling-off|commencement of trading/.test(s)) return 'daily';
+  return figure.replace(/within |not later than |at least |no later than |agreement not longer than /i, '').trim().slice(0, 12);
+}
+function rowNum(r, rl){ return rl.split('·')[0].trim(); }
+const shortSub = s => s.length > 54 ? s.slice(0, 53).replace(/\s\S*$/, '') + '…' : s;
+function tileHTML(f, tint, kind){
+  const num = kind === 'pen' ? penShort(f.figure) : shortNum(f.figure);
+  return `<div class="rgtile ${tint}" data-fig="${esc(f.id)}"><b class="rgnum">${esc(num)}</b><span class="rglbl">${esc(shortSub(f.subject))}</span></div>`;
+}
+function cellHTML(items, tint){
   if (!items) return `<div class="rgcell ${tint} empty"></div>`;
-  const cov = ui.covTL && !ui.revealed[key];
-  return `<div class="rgcell ${tint}${cov ? ' cov' : ''}" data-rv="${esc(key)}">${cov
-    ? `<span class="rgn">${items.length}</span><span class="rgnhint">reveal</span>`
-    : items.map(f => `<span class="rgchip" title="${esc(f.subject)} — ${esc(f.figure)}">${esc(shortSub(f.subject))}<a class="cite" data-page="${f.pdf_page}" href="#">p.${esc(App.pageLabel(f.pdf_page))}</a></span>`).join('')}</div>`;
+  return `<div class="rgcell ${tint}">${items.map(f => tileHTML(f, tint, 'tl')).join('')}</div>`;
 }
 function gridHTML(){
   const cells = gridData();
   const active = ROWS.filter(([r]) => cells[r] && COLS.some(([c]) => (cells[r][c] || []).length));
-  return `<div class="card scroll-x"><table class="rgtable"><thead><tr><th></th>${COLS.map(([c, l]) => `<th class="${c}">${l}</th>`).join('')}</tr></thead><tbody>
+  return `<div class="card scroll-x"><table class="rgtable" id="tltable"><thead><tr><th></th>${COLS.map(([c, l]) => `<th class="${c}">${l}</th>`).join('')}</tr></thead><tbody>
     ${active.map(([r, rl]) => {
       const total = COLS.reduce((n, [c]) => n + ((cells[r][c] || []).length), 0);
-      return `<tr><th class="rgrowh">${esc(rl)}<span class="muted small"> ${total}</span></th>
-      ${COLS.map(([c, , tint]) => cellHTML(cells[r][c], r + ':' + c, tint)).join('')}</tr>`; }).join('')}
+      return `<tr><th class="rgrowh"><b class="rgrownum">${esc(rowNum(r, rl))}</b><span class="muted small">· ${esc(rl.replace(/^[^·]*·\s*/, ''))}</span></th>
+      ${COLS.map(([c, , tint]) => cellHTML(cells[r][c], tint)).join('')}</tr>`; }).join('')}
   </tbody></table></div>
-  <p class="muted small" style="margin:10px 2px 0">Read it like a range chart: first learn the <b>shape</b> (the SFC column is never in months; records run for years; client-facing is 1–2 days), then fill the cells. Empty cells are information — "no cell there" rules options out in the exam. Covered cells show only how many rules sit there; click to reveal.</p>`;
+  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself.</p>`;
 }
 
 /* ---------- 2. penalty board ---------- */
@@ -93,23 +117,39 @@ function penParse(f){
   else if (/level 6|per day/i.test(f.figure)) $c = 'oth';
   return { j, c: $c };
 }
+function penShort(figure){
+  const y = (figure.match(/(\d+)\s*years?/) || [])[1];
+  const mm = figure.match(/HK\$([\d.,]+)\s*(million)?/i);
+  const money = /unlimited/i.test(figure) ? 'unlimited' : mm ? (mm[2] ? 'HK$' + mm[1].replace(/\.0+$/, '') + 'm' : 'HK$' + mm[1].replace(/,000$/, 'k')) : '';
+  const parts = [];
+  if (y) parts.push(y + 'y jail');
+  if (money) parts.push(money);
+  if (!parts.length) return figure.replace(/^greater of /i, '').slice(0, 18);
+  return parts.join(' · ');
+}
+function penTint(f){
+  const t = (f.subject + ' ' + f.figure).toLowerCase();
+  if (/market misconduct/.test(t)) return 'bad';
+  if (/amlo/.test(t)) return 'warn';
+  if (/wmd/.test(t)) return 'bad';
+  if (/otcd/.test(t)) return 'info';
+  if (/sfc|disciplinary|pecuniary/.test(t)) return 'acc';
+  return 'neu';
+}
 const JAIL = ['10','7','3','2','0'], FINE = [['unl','Unlimited fine'],['f10','HK$10m / 3× profit'],['f5','HK$5m'],['f1','HK$1m'],['oth','Other (level 6 + daily)'],['none','No fine stated']];
 function boardHTML(){
   const board = {}; pens.forEach(f => { const p = penParse(f); if (p.case) return;
     (board[p.j] = board[p.j] || {}); (board[p.j][p.c] = board[p.j][p.c] || []).push(f); });
   const cases = pens.filter(f => penParse(f).case);
-  const cellP = (j, c) => { const items = (board[j] || {})[c]; const key = 'P' + j + c;
-    if (!items) return `<div class="rgcell pen empty"></div>`;
-    const cov = ui.covPen && !ui.revealed[key];
-    return `<div class="rgcell pen${cov ? ' cov' : ''}" data-rv="${esc(key)}">${cov
-      ? `<span class="rgn">${items.length}</span><span class="rgnhint">reveal</span>`
-      : items.map(f => `<span class="rgchip" title="${esc(f.subject)}">${esc(shortSub(f.subject))}<a class="cite" data-page="${f.pdf_page}" href="#">p.${esc(App.pageLabel(f.pdf_page))}</a></span>`).join('')}</div>`; };
-  return `<div class="card scroll-x"><table class="rgtable pen"><thead><tr><th>Jail ↓ · Fine →</th>${FINE.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
-    ${JAIL.map(j => `<tr><th class="rgrowh">${j === '0' ? 'No imprisonment' : esc(j) + (j === '1' ? ' year' : ' years')}</th>${FINE.map(([c]) => cellP(j, c)).join('')}</tr>`).join('')}
+  return `<div class="card scroll-x"><table class="rgtable"><thead><tr><th>Jail ↓ · Fine →</th>${FINE.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
+    ${JAIL.map(j => `<tr><th class="rgrowh"><b class="rgrownum">${j === '0' ? 'no jail' : esc(j) + (j === '1' ? ' year' : ' years')}</b></th>${FINE.map(([c]) => {
+      const items = (board[j] || {})[c];
+      if (!items) return `<div class="rgcell empty"></div>`;
+      return `<div class="rgcell">${items.map(f => tileHTML(f, penTint(f), 'pen')).join('')}</div>`; }).join('')}</tr>`).join('')}
   </tbody></table></div>
+  <p class="muted small" style="margin:8px 2px 0">Colours: <span class="chip bad">market misconduct / WMD</span> <span class="chip warn">AMLO</span> <span class="chip info">OTCD rules</span> <span class="chip acc">SFC disciplinary</span>. Two clusters, that's the whole board: <b>HK$1m + short jail</b> and <b>HK$10m-or-3× + long jail</b>; AMLO splits on intent (2y permitting vs 7y intent to defraud).</p>
   ${cases.length ? `<h3 style="margin:18px 0 8px">Actual sanctions handed out (SFC cases — not maximums)</h3>
-  <div class="card"><div class="rgcell pen" style="display:block">${cases.map(f => `<span class="rgchip" title="${esc(f.subject)}">${esc(shortSub(f.subject))}<a class="cite" data-page="${f.pdf_page}" href="#">p.${esc(App.pageLabel(f.pdf_page))}</a></span>`).join('')}</div>
-  <p class="muted small" style="margin:10px 0 0">The whole statutory board is two clusters: <b>HK$1m + short/medium jail</b> and <b>HK$10m-or-3× + long jail</b>, with AMLO splitting on intent (2 years for permitting a breach vs 7 years for intent to defraud). One glance, whole category done.</p></div>` : ''}`;
+  <div class="card"><div class="rgcell">${cases.map(f => tileHTML(f, 'neu', 'pen')).join('')}</div></div>` : ''}`;
 }
 
 /* ---------- 3. the orphanage ---------- */
@@ -150,9 +190,31 @@ function orphanHTML(){
     </div>`).join('') || '<p class="empty">Nothing left here.</p>'}</div></div>`;
 }
 
+/* ---------- tile details modal ---------- */
+function figModal(f){
+  let m = $('#rgmodal');
+  if (!m) { document.body.insertAdjacentHTML('beforeend', `<div id="rgmodal" class="modal" hidden><div class="box" style="width:min(620px,94vw)"><div class="mh"><b id="rgmtitle"></b><button class="iconbtn" id="rgmclose" aria-label="Close">×</button></div><div class="mb" id="rgmbody" style="padding:18px;overflow:auto;max-height:78vh;background:var(--bg)"></div></div></div>`); m = $('#rgmodal'); $('#rgmclose').onclick = () => { m.hidden = true; }; }
+  const kn = known();
+  $('#rgmtitle').textContent = f.subject;
+  $('#rgmbody').innerHTML = `
+    <div class="rgnum" style="font-size:1.9rem;margin:2px 0 10px">${esc(f.figure)}</div>
+    <p>${App.enumify(esc(f.detail || ''))}</p>
+    ${f.trap ? `<div class="trap"><b>Don't confuse:</b> ${esc(f.trap)}</div>` : ''}
+    <div class="quote">“${esc(f.quote)}”</div>
+    <div class="row small" style="gap:10px;margin-top:14px;flex-wrap:wrap">
+      <a class="cite" data-page="${f.pdf_page}" href="#">guide p.${esc(App.pageLabel(f.pdf_page))}</a>
+      <label class="small muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rgmk" ${kn[f.id] ? 'checked' : ''}> known</label>
+      <button class="btn sm" id="rgmdrill">Drill this figure</button>
+    </div>`;
+  $('#rgmk').onchange = e => { const k = known(); e.target.checked ? k[f.id] = Date.now() : delete k[f.id]; App.save(); };
+  $('#rgmdrill').onclick = () => { m.hidden = true; App.startCards(['FG:' + f.id]); };
+  m.hidden = false;
+}
+
 /* ---------- view ---------- */
 App.views.ranges = function(view){
   const orph = orphanage();
+  const fig = id => F.find(f => f.id === id);
   view.innerHTML = `
   <div class="row" style="align-items:flex-end"><div><h1>Ranges</h1>
   <p class="lead" style="margin:6px 0 0">The ${F.length} figures are not ${F.length} facts. They collapse into families — learn the <b>shape</b> like a range chart, and only the orphans by heart.</p></div></div>
@@ -163,16 +225,16 @@ App.views.ranges = function(view){
   </div>
   <h2 style="margin:10px 0 8px">Deadline range chart</h2>
   <div class="row" style="gap:8px;margin:0 0 10px;flex-wrap:wrap">
-    <button class="btn" id="tgcov">${ui.covTL ? 'Reveal all cells' : 'Cover the grid (self-test)'}</button>
+    <button class="btn" id="tgcov">${ui.covTL ? 'Show the numbers' : 'Cover the numbers (self-test)'}</button>
     <button class="btn primary" id="tldrill">Drill this grid</button>
   </div>
-  <div id="tlgrid">${gridHTML()}</div>
+  <div id="tlgrid" class="${ui.covTL ? 'cov' : ''}">${gridHTML()}</div>
   <h2 style="margin:30px 0 8px">Penalty board</h2>
   <div class="row" style="gap:8px;margin:0 0 10px;flex-wrap:wrap">
-    <button class="btn" id="pencov">${ui.covPen ? 'Reveal all cards' : 'Cover the board (self-test)'}</button>
+    <button class="btn" id="pencov">${ui.covPen ? 'Show the numbers' : 'Cover the numbers (self-test)'}</button>
     <button class="btn primary" id="pendrill">Drill the penalties</button>
   </div>
-  <div id="penboard">${boardHTML()}</div>
+  <div id="penboard" class="${ui.covPen ? 'cov' : ''}">${boardHTML()}</div>
   <h2 style="margin:30px 0 8px">The Orphanage <span class="muted small" style="font-weight:500">numbers with no system</span></h2>
   <div id="orph">${orphanHTML()}</div>`;
   $('#tgcov').onclick = () => { ui.covTL = !ui.covTL; ui.revealed = {}; App.views.ranges(view); };
@@ -181,7 +243,13 @@ App.views.ranges = function(view){
   $('#pendrill').onclick = () => App.startCards(App.shuffle(pens).map(f => 'FG:' + f.id));
   $('#odrill').onclick = () => App.startCards(App.shuffle(orph).slice(0, 30).map(f => 'FG:' + f.id));
   $('#ohide').onchange = e => { ui.hideOrph = e.target.checked; App.views.ranges(view); };
-  view.querySelectorAll('[data-rv]').forEach(el => el.onclick = () => { ui.revealed[el.dataset.rv] = true; App.views.ranges(view); });
+  view.querySelectorAll('.rgtile').forEach(t => t.onclick = () => {
+    const f = fig(t.dataset.fig); if (!f) return;
+    const sec = t.closest('.cov');                      /* inside a covered section? */
+    const num = t.querySelector('.rgnum');
+    if (sec && num && getComputedStyle(num).visibility === 'hidden') { num.style.visibility = 'visible'; return; }   /* first tap = reveal the number */
+    figModal(f);                                        /* otherwise: full details */
+  });
   view.querySelectorAll('.fgrow[data-oid] .fgk').forEach(cb => cb.onchange = e => { const k = known(); const id = cb.closest('.fgrow').dataset.oid; e.target.checked ? k[id] = Date.now() : delete k[id]; App.save(); App.views.ranges(view); });
 };
 })();
