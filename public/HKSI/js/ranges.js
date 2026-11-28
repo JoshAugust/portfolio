@@ -83,25 +83,27 @@ function shortNum(figure){
   return figure.replace(/within |not later than |at least |no later than |agreement not longer than /i, '').trim().slice(0, 12);
 }
 function rowNum(r, rl){ return rl.split('·')[0].trim(); }
-const shortSub = s => s.length > 54 ? s.slice(0, 53).replace(/\s\S*$/, '') + '…' : s;
-function tileHTML(f, tint, kind){
+const shortSub = s => s.length > 72 ? s.slice(0, 71).replace(/\s\S*$/, '') + '…' : s;
+function tileHTML(f, tint, kind, kn){
   const num = kind === 'pen' ? penShort(f.figure) : shortNum(f.figure);
-  return `<div class="rgtile ${tint}" data-fig="${esc(f.id)}"><b class="rgnum">${esc(num)}</b><span class="rglbl">${esc(shortSub(f.subject))}</span></div>`;
+  const done = kn && kn[f.id] ? ' done' : '';
+  return `<div class="rgtile ${tint}${done}" data-fig="${esc(f.id)}">${done ? '<span class="rgtick">✓</span>' : ''}<b class="rgnum">${esc(num)}</b><span class="rglbl">${esc(shortSub(f.subject))}</span></div>`;
 }
-function cellHTML(items, tint){
+function cellHTML(items, tint, kn){
   if (!items) return `<div class="rgcell ${tint} empty"></div>`;
-  return `<div class="rgcell ${tint}">${items.map(f => tileHTML(f, tint, 'tl')).join('')}</div>`;
+  return `<div class="rgcell ${tint}">${items.map(f => tileHTML(f, tint, 'tl', kn)).join('')}</div>`;
 }
 function gridHTML(){
   const cells = gridData();
+  const kn = known();
   const active = ROWS.filter(([r]) => cells[r] && COLS.some(([c]) => (cells[r][c] || []).length));
   return `<div class="card scroll-x"><table class="rgtable" id="tltable"><thead><tr><th class="corner"></th>${COLS.map(([c, l]) => `<th class="${c}">${l}</th>`).join('')}</tr></thead><tbody>
     ${active.map(([r, rl]) => {
       const total = COLS.reduce((n, [c]) => n + ((cells[r][c] || []).length), 0);
       return `<tr><th class="rgrowh"><b class="rgrownum">${esc(rowNum(r, rl))}</b><span class="muted small">· ${esc(rl.replace(/^[^·]*·\s*/, ''))} · ${total}</span></th>
-      ${COLS.map(([c, , tint]) => `<td class="rgtd">${cellHTML(cells[r][c], tint)}</td>`).join('')}</tr>`; }).join('')}
+      ${COLS.map(([c, , tint]) => `<td class="rgtd">${cellHTML(cells[r][c], tint, kn)}</td>`).join('')}</tr>`; }).join('')}
   </tbody></table></div>
-  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself. The grid scrolls sideways; row and column headers stay pinned.</p>`;
+  <p class="muted small" style="margin:10px 2px 0">Each tile is one rule; the bold chip is the number. Learn the <b>shape</b> first (SFC column: 1 or 7 business days, never months · records: years · client money: 1–2 days), then the tiles. Empty cells rule options out in the exam. <b>Cover mode</b> ghosts every number so you can recall them from the rule names — tap any tile to check yourself. The grid scrolls sideways; row and column headers stay pinned. A tick marks a tile as known (set it in the tile's card); the tile fades but keeps its colour.</p>`;
 }
 
 /* ---------- 2. penalty board ---------- */
@@ -141,14 +143,15 @@ function boardHTML(){
   const board = {}; pens.forEach(f => { const p = penParse(f); if (p.case) return;
     (board[p.j] = board[p.j] || {}); (board[p.j][p.c] = board[p.j][p.c] || []).push(f); });
   const cases = pens.filter(f => penParse(f).case);
+  const kn = known();
   return `<div class="card scroll-x"><table class="rgtable"><thead><tr><th class="corner">Jail ↓ · Fine →</th>${FINE.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody>
     ${JAIL.map(j => `<tr><th class="rgrowh"><b class="rgrownum">${j === '0' ? 'no jail' : esc(j) + (j === '1' ? ' year' : ' years')}</b></th>${FINE.map(([c]) => {
       const items = (board[j] || {})[c];
-      return `<td class="rgtd">${items ? `<div class="rgcell">${items.map(f => tileHTML(f, penTint(f), 'pen')).join('')}</div>` : '<div class="rgcell empty"></div>'}</td>`; }).join('')}</tr>`).join('')}
+      return `<td class="rgtd">${items ? `<div class="rgcell">${items.map(f => tileHTML(f, penTint(f), 'pen', kn)).join('')}</div>` : '<div class="rgcell empty"></div>'}</td>`; }).join('')}</tr>`).join('')}
   </tbody></table></div>
   <p class="muted small" style="margin:8px 2px 0">Colours: <span class="chip bad">market misconduct / WMD</span> <span class="chip warn">AMLO</span> <span class="chip info">OTCD rules</span> <span class="chip acc">SFC disciplinary</span>. Two clusters, that's the whole board: <b>HK$1m + short jail</b> and <b>HK$10m-or-3× + long jail</b>; AMLO splits on intent (2y permitting vs 7y intent to defraud). The board scrolls sideways with headers pinned.</p>
   ${cases.length ? `<h3 style="margin:18px 0 8px">Actual sanctions handed out (SFC cases — not maximums)</h3>
-  <div class="card"><div class="rgcell">${cases.map(f => tileHTML(f, 'neu', 'pen')).join('')}</div></div>` : ''}`;
+  <div class="card"><div class="rgcell">${cases.map(f => tileHTML(f, 'neu', 'pen', kn)).join('')}</div></div>` : ''}`;
 }
 
 /* ---------- 3. the orphanage ---------- */
@@ -205,7 +208,11 @@ function figModal(f){
       <label class="small muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rgmk" ${kn[f.id] ? 'checked' : ''}> known</label>
       <button class="btn sm" id="rgmdrill">Drill this figure</button>
     </div>`;
-  $('#rgmk').onchange = e => { const k = known(); e.target.checked ? k[f.id] = Date.now() : delete k[f.id]; App.save(); };
+  $('#rgmk').onchange = e => { const k = known(); e.target.checked ? k[f.id] = Date.now() : delete k[f.id]; App.save();
+    document.querySelectorAll('.rgtile[data-fig="' + CSS.escape(f.id) + '"]').forEach(t => { t.classList.toggle('done', e.target.checked);
+      const tick = document.createElement('span'); tick.className = 'rgtick'; tick.textContent = '✓';
+      if (e.target.checked && !t.querySelector('.rgtick')) t.prepend(tick); else if (!e.target.checked) { const x = t.querySelector('.rgtick'); if (x) x.remove(); } });
+    document.querySelectorAll('.fgrow[data-oid="' + CSS.escape(f.id) + '"]').forEach(r => r.classList.toggle('done', e.target.checked)); };
   $('#rgmdrill').onclick = () => { m.hidden = true; App.startCards(['FG:' + f.id]); };
   m.hidden = false;
 }

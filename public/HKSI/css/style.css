@@ -267,18 +267,22 @@ br.en{display:block;content:'';margin-top:.35em}
 .rgrowh .muted{font-size:.68rem}
 .rgcell{border-radius:12px;min-width:120px;min-height:36px;padding:0;display:flex;flex-wrap:wrap;gap:7px;align-content:flex-start;vertical-align:top}
 .rgcell.empty{border:1px dashed var(--line);opacity:.35}
-.rgtile{display:flex;flex-direction:column;gap:4px;align-items:flex-start;flex:1 1 118px;max-width:176px;border-radius:12px;padding:9px 11px;cursor:pointer;transition:filter .1s}
+.rgtile{display:flex;flex-direction:column;gap:4px;align-items:flex-start;flex:1 1 118px;max-width:176px;border-radius:12px;padding:8px 10px;cursor:pointer;transition:filter .1s;position:relative}
 .rgtile:hover{filter:brightness(1.12)}
+.rgtile.done{opacity:.55}
+.rgtick{position:absolute;top:5px;right:8px;font-size:.78rem;font-weight:700}
+.rgtile.acc .rgtick{color:var(--accent)} .rgtile.info .rgtick{color:var(--info)} .rgtile.good .rgtick{color:var(--good)}
+.rgtile.warn .rgtick{color:var(--warn)} .rgtile.bad .rgtick{color:var(--bad)} .rgtile.neu .rgtick{color:var(--ink)}
 .rgtile.acc{background:color-mix(in srgb,var(--accent) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--accent) 42%,transparent)}
 .rgtile.info{background:color-mix(in srgb,var(--info) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--info) 42%,transparent)}
 .rgtile.good{background:color-mix(in srgb,var(--good) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--good) 42%,transparent)}
 .rgtile.warn{background:color-mix(in srgb,var(--warn) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--warn) 42%,transparent)}
 .rgtile.bad{background:color-mix(in srgb,var(--bad) 26%,var(--bg));border:1px solid color-mix(in srgb,var(--bad) 42%,transparent)}
 .rgtile.neu{background:var(--surface2);border:1px solid var(--line)}
-.rgtile .rgnum{font:700 1.1rem/1.1 var(--serif);letter-spacing:.01em}
+.rgtile .rgnum{font:700 1.02rem/1.1 var(--serif);letter-spacing:.01em}
 .rgtile.acc .rgnum{color:var(--accent)} .rgtile.info .rgnum{color:var(--info)} .rgtile.good .rgnum{color:var(--good)}
 .rgtile.warn .rgnum{color:var(--warn)} .rgtile.bad .rgnum{color:var(--bad)} .rgtile.neu .rgnum{color:var(--ink)}
-.rgtile .rglbl{font-size:.75rem;font-weight:500;line-height:1.3;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rgtile .rglbl{font-size:.68rem;font-weight:500;line-height:1.25;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .cov .rgnum,.cov .rgrownum{visibility:hidden}
 #rgmodal .rgnum{font-family:var(--serif);color:var(--accent)}
 
